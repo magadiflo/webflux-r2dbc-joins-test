@@ -1,3 +1,18 @@
+server:
+  port: 8080
+  error:
+    include-message: always
+
 spring:
   application:
     name: webflux-r2dbc-joins
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5433/db_webflux_r2dbc
+    username: magadiflo
+    password: magadiflo
+
+logging:
+  level:
+    org.springframework.r2dbc: DEBUG
+    io.r2dbc.postgresql.QUERY: DEBUG
+    io.r2dbc.postgresql.PARAM: DEBUG
