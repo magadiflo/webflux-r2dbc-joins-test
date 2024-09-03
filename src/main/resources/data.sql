@@ -1,7 +1,5 @@
-TRUNCATE TABLE department_managers;
-TRUNCATE TABLE department_employees;
-TRUNCATE TABLE departments RESTART IDENTITY;
-TRUNCATE TABLE employees RESTART IDENTITY;
+TRUNCATE TABLE departments RESTART IDENTITY CASCADE;
+TRUNCATE TABLE employees RESTART IDENTITY CASCADE;
 
 INSERT INTO employees(first_name, last_name, position, is_full_time)
 VALUES('Carlos', 'Gómez', 'Gerente', true),

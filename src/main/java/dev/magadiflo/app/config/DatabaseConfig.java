@@ -12,7 +12,7 @@ public class DatabaseConfig {
     @Bean
     public ConnectionFactoryInitializer initializer(ConnectionFactory connectionFactory) {
         ClassPathResource schemaResource = new ClassPathResource("schema.sql");
-        ClassPathResource dataResource = new ClassPathResource("schema.sql");
+        ClassPathResource dataResource = new ClassPathResource("data.sql");
         ResourceDatabasePopulator resourceDatabasePopulator = new ResourceDatabasePopulator(schemaResource, dataResource);
 
         ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
