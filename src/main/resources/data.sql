@@ -1,3 +1,8 @@
+TRUNCATE TABLE department_managers;
+TRUNCATE TABLE department_employees;
+TRUNCATE TABLE departments RESTART IDENTITY;
+TRUNCATE TABLE employees RESTART IDENTITY;
+
 INSERT INTO employees(first_name, last_name, position, is_full_time)
 VALUES('Carlos', 'Gómez', 'Gerente', true),
 ('Ana', 'Martínez', 'Desarrollador', true),
