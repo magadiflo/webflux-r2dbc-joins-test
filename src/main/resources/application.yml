@@ -13,6 +13,7 @@ spring:
 
 logging:
   level:
+    dev.magadiflo.app: DEBUG
     org.springframework.r2dbc: DEBUG
     io.r2dbc.postgresql.QUERY: DEBUG
     io.r2dbc.postgresql.PARAM: DEBUG

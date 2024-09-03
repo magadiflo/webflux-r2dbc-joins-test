@@ -22,7 +22,7 @@ import java.util.stream.Stream;
 @Transactional(readOnly = true)
 public class DepartmentServiceImpl implements DepartmentService {
 
-    private DepartmentRepository departmentRepository;
+    private final DepartmentRepository departmentRepository;
 
     @Override
     public Flux<Department> getAllDepartments() {

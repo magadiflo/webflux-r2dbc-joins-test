@@ -38,12 +38,21 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(WebExchangeBindException.class)
     public ResponseEntity<ErrorResponse> handleException(WebExchangeBindException exception) {
+        log.debug("webExchangeBindException:: {}", exception.getMessage());
         List<String> errors = exception.getBindingResult()
                 .getAllErrors()
                 .stream()
                 .map(DefaultMessageSourceResolvable::getDefaultMessage)
                 .toList();
         ErrorResponse response = new ErrorResponse(Map.of("errors", errors));
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleException(Exception exception) {
+        log.debug("handleException:: {}", exception.getMessage());
+        exception.printStackTrace();
+        ErrorResponse response = new ErrorResponse(Map.of("error", exception.getMessage()));
         return ResponseEntity.badRequest().body(response);
     }
 
