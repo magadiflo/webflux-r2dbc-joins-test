@@ -9,7 +9,7 @@ import reactor.core.publisher.Mono;
 public interface DepartmentService {
     Flux<Department> getAllDepartments();
 
-    Mono<Department> showDepartment(Long departmentId);
+    Mono<Department> showDepartmentWithManagerAndEmployees(Long departmentId);
 
     Flux<Employee> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime);
 

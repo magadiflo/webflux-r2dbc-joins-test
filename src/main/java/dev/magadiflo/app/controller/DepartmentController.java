@@ -28,7 +28,7 @@ public class DepartmentController {
 
     @GetMapping(path = "/{departmentId}")
     public Mono<ResponseEntity<Department>> findDepartment(@PathVariable Long departmentId) {
-        return this.departmentService.showDepartment(departmentId)
+        return this.departmentService.showDepartmentWithManagerAndEmployees(departmentId)
                 .map(ResponseEntity::ok);
     }
 

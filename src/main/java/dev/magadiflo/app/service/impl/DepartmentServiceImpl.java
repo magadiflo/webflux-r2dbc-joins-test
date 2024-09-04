@@ -30,15 +30,15 @@ public class DepartmentServiceImpl implements DepartmentService {
     }
 
     @Override
-    public Mono<Department> showDepartment(Long departmentId) {
-        return this.departmentRepository.findById(departmentId)
+    public Mono<Department> showDepartmentWithManagerAndEmployees(Long departmentId) {
+        return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)));
     }
 
     @Override
     public Flux<Employee> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime) {
         if (isFullTime != null) {
-            return this.departmentRepository.findById(departmentId)
+            return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
                     .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
                     .flatMapMany(departmentDB -> {
                         Stream<Employee> employeeStream = departmentDB.getEmployees().stream()
@@ -47,7 +47,7 @@ public class DepartmentServiceImpl implements DepartmentService {
                     });
         }
 
-        return this.departmentRepository.findById(departmentId)
+        return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
                 .flatMapMany(department -> Flux.fromIterable(department.getEmployees()));
     }
@@ -65,7 +65,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     @Transactional
     public Mono<Department> updateDepartment(Long departmentId, Department department) {
-        return this.departmentRepository.findById(departmentId)
+        return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
                 .map(departmentDB -> {
                     departmentDB.setName(department.getName());
@@ -81,7 +81,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     @Transactional
     public Mono<Void> deleteDepartment(Long departmentId) {
-        return this.departmentRepository.findById(departmentId)
+        return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
                 .flatMap(this.departmentRepository::delete);
     }

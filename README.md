@@ -393,7 +393,7 @@ patrón para el `Department`, necesitamos una interfaz y una clase de implementa
 public interface DepartmentRepository {
     Flux<Department> findAll();
 
-    Mono<Department> findById(Long departmentId);
+    Mono<Department> findDepartmentWithManagerAndEmployees(Long departmentId);
 
     Mono<Department> findByName(String name);
 
@@ -434,12 +434,11 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
                 LEFT JOIN employees AS m ON(dm.employee_id = m.id)
                 LEFT JOIN department_employees AS de ON(d.id = de.department_id)
                 LEFT JOIN employees AS e ON(de.employee_id = e.id)
-            ORDER BY d.id
             """;
 
     @Override
     public Flux<Department> findAll() {
-        return this.client.sql(SELECT_QUERY)
+        return this.client.sql("%s ORDER BY d.id".formatted(SELECT_QUERY))
                 .fetch()
                 .all()
                 .bufferUntilChanged(rowMap -> rowMap.get("d_id"))
@@ -447,7 +446,7 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
     }
 
     @Override
-    public Mono<Department> findById(Long departmentId) {
+    public Mono<Department> findDepartmentWithManagerAndEmployees(Long departmentId) {
         return this.client.sql("%s WHERE d.id = :departmentId".formatted(SELECT_QUERY))
                 .bind("departmentId", departmentId)
                 .fetch()
@@ -603,7 +602,7 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
 
 @Override
 public Flux<Department> findAll() {
-    return this.client.sql(SELECT_QUERY)
+    return this.client.sql("%s ORDER BY d.id".formatted(SELECT_QUERY))
             .fetch()
             .all()
             .bufferUntilChanged(rowMap -> rowMap.get("d_id"))
@@ -616,7 +615,7 @@ public Flux<Department> findAll() {
 - `this.client`, instancia de `Databaseclient` definido al inicio de la clase.
 
 
-- `.sql(SELECT_QUERY)`, especifica una sentencia `SQL` estática para ejecutar.
+- `.sql("%s ORDER BY d.id".formatted(SELECT_QUERY))`, especifica una sentencia `SQL` estática para ejecutar.
 
 
 - `.fetch()`, realice la llamada `SQL` y recupere el resultado ingresando a la etapa de ejecución.
@@ -651,7 +650,7 @@ por los operadores.
 
 @Override
 public Flux<Department> findAll() {
-    return this.client.sql(SELECT_QUERY)
+    return this.client.sql("%s ORDER BY d.id".formatted(SELECT_QUERY))
             .fetch()
             .all()
             .doOnNext(rowMap -> {
@@ -948,7 +947,7 @@ public interface EmployeeService {
 public interface DepartmentService {
     Flux<Department> getAllDepartments();
 
-    Mono<Department> showDepartment(Long departmentId);
+    Mono<Department> showDepartmentWithManagerAndEmployees(Long departmentId);
 
     Flux<Employee> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime);
 
@@ -1048,15 +1047,15 @@ public class DepartmentServiceImpl implements DepartmentService {
     }
 
     @Override
-    public Mono<Department> showDepartment(Long departmentId) {
-        return this.departmentRepository.findById(departmentId)
+    public Mono<Department> showDepartmentWithManagerAndEmployees(Long departmentId) {
+        return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)));
     }
 
     @Override
     public Flux<Employee> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime) {
         if (isFullTime != null) {
-            return this.departmentRepository.findById(departmentId)
+            return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
                     .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
                     .flatMapMany(departmentDB -> {
                         Stream<Employee> employeeStream = departmentDB.getEmployees().stream()
@@ -1065,7 +1064,7 @@ public class DepartmentServiceImpl implements DepartmentService {
                     });
         }
 
-        return this.departmentRepository.findById(departmentId)
+        return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
                 .flatMapMany(department -> Flux.fromIterable(department.getEmployees()));
     }
@@ -1083,7 +1082,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     @Transactional
     public Mono<Department> updateDepartment(Long departmentId, Department department) {
-        return this.departmentRepository.findById(departmentId)
+        return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
                 .map(departmentDB -> {
                     departmentDB.setName(department.getName());
@@ -1099,7 +1098,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     @Transactional
     public Mono<Void> deleteDepartment(Long departmentId) {
-        return this.departmentRepository.findById(departmentId)
+        return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
                 .flatMap(this.departmentRepository::delete);
     }
@@ -1167,7 +1166,7 @@ public class DepartmentController {
 
     @GetMapping(path = "/{departmentId}")
     public Mono<ResponseEntity<Department>> findDepartment(@PathVariable Long departmentId) {
-        return this.departmentService.showDepartment(departmentId)
+        return this.departmentService.showDepartmentWithManagerAndEmployees(departmentId)
                 .map(ResponseEntity::ok);
     }
 

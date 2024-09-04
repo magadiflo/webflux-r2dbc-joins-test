@@ -38,12 +38,11 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
                 LEFT JOIN employees AS m ON(dm.employee_id = m.id)
                 LEFT JOIN department_employees AS de ON(d.id = de.department_id)
                 LEFT JOIN employees AS e ON(de.employee_id = e.id)
-            ORDER BY d.id
             """;
 
     @Override
     public Flux<Department> findAll() {
-        return this.client.sql(SELECT_QUERY)
+        return this.client.sql("%s ORDER BY d.id".formatted(SELECT_QUERY))
                 .fetch()
                 .all()
                 .bufferUntilChanged(rowMap -> rowMap.get("d_id"))
@@ -51,7 +50,7 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
     }
 
     @Override
-    public Mono<Department> findById(Long departmentId) {
+    public Mono<Department> findDepartmentWithManagerAndEmployees(Long departmentId) {
         return this.client.sql("%s WHERE d.id = :departmentId".formatted(SELECT_QUERY))
                 .bind("departmentId", departmentId)
                 .fetch()
