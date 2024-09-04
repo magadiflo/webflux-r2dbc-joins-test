@@ -1121,3 +1121,121 @@ public class DepartmentController {
 
 }
 ````
+
+## Ejecutando aplicación y comprobando funcionamiento de endpoints
+
+### Employee
+
+Como parte de la comprobación, solo se ejecutará el método para listar todos los empleados y registrar un empleado, de
+esta manera tendremos una idea del funcionamiento del endpoint.
+
+````bash
+$ curl -v http://localhost:8080/api/v1/employees | jq
+>
+< HTTP/1.1 200 OK
+< transfer-encoding: chunked
+< Content-Type: application/json
+<
+[
+  {
+    "id": 1,
+    "firstName": "Carlos",
+    "lastName": "Gómez",
+    "position": "Gerente",
+    "fullTime": true
+  },
+  {...},
+  {
+    "id": 20,
+    "firstName": "Isabel",
+    "lastName": "Ramos",
+    "position": "Desarrollador",
+    "fullTime": true
+  }
+]
+````
+
+````bash
+$ curl -v -X POST -H "Content-Type: application/json" -d "{\"firstName\": \"Maria\", \"lastName\": \"Diaz\", \"position\": \"Desarrollador\", \"isFullTime\": false}" http://localhost:8080/api/v1/employees | jq
+>
+< HTTP/1.1 201 Created
+<
+{
+  "id": 21,
+  "firstName": "Maria",
+  "lastName": "Diaz",
+  "position": "Desarrollador",
+  "fullTime": false
+}
+````
+
+### Department
+
+De la misma manera que se hizo con los employees, aquí también realizaremos unas cuantas peticiones a algunos endpoints
+para tener una idea de su funcionamiento.
+
+````bash
+$ curl -v http://localhost:8080/api/v1/departments/4 | jq
+>
+< HTTP/1.1 200 OK
+<
+{
+  "id": 4,
+  "name": "Marketing",
+  "manager": {
+    "id": 4,
+    "firstName": "María",
+    "lastName": "Rodríguez",
+    "position": "Analista",
+    "fullTime": true
+  },
+  "employees": [
+    {
+      "id": 18,
+      "firstName": "Marta",
+      "lastName": "Ortega",
+      "position": "Diseñador",
+      "fullTime": false
+    },
+    {
+      "id": 12,
+      "firstName": "Elena",
+      "lastName": "Ruiz",
+      "position": "Analista",
+      "fullTime": false
+    }
+  ]
+}
+````
+
+````bash
+$ curl -v -X POST -H "Content-Type: application/json" -d "{\"name\": \"Legal\"}" http://localhost:8080/api/v1/departments | jq
+>
+< HTTP/1.1 201 Created
+<
+{
+  "id": 6,
+  "name": "Legal",
+  "manager": null,
+  "employees": []
+}
+````
+
+````bash
+$ curl -v -X PUT -H "Content-Type: application/json" -d "{\"name\": \"Legalizado\", \"manager\": {\"firstName\": \"Martin\", \"lastName\": \"Diaz\", \"position\": \"Desarrollador\", \"fullTime\": true}}" http://localhost:8080/api/v1/departments/6 | jq
+>
+< HTTP/1.1 200 OK
+<
+{
+  "id": 6,
+  "name": "Legalizado",
+  "manager": {
+    "id": 22,
+    "firstName": "Martin",
+    "lastName": "Diaz",
+    "position": "Desarrollador",
+    "fullTime": true
+  },
+  "employees": []
+} 
+````
