@@ -140,3 +140,52 @@ VALUES(1, 5),  -- Recursos Humanos - José Pérez
 (5, 19); -- Ventas - Andrés Castillo
 ````
 
+## Configura propiedades de la aplicación
+
+En el `application.yml` agregaremos las siguientes configuraciones. Notar que la base de datos que estamos usando
+se llama `db_webflux_r2dbc`. Esta base de datos la crearemos en el siguiente apartado.
+
+````yml
+server:
+  port: 8080
+  error:
+    include-message: always
+
+spring:
+  application:
+    name: webflux-r2dbc-joins
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5433/db_webflux_r2dbc
+    username: magadiflo
+    password: magadiflo
+
+logging:
+  level:
+    dev.magadiflo.app: DEBUG
+    io.r2dbc.postgresql.QUERY: DEBUG
+    io.r2dbc.postgresql.PARAM: DEBUG
+````
+
+## Base de datos Postgres con docker compose
+
+Vamos a crear nuestra base de datos usando `compose` de docker.
+
+````yml
+services:
+  postgres:
+    image: postgres:15.2-alpine
+    container_name: c-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: db_webflux_r2dbc
+      POSTGRES_USER: magadiflo
+      POSTGRES_PASSWORD: magadiflo
+    ports:
+      - '5433:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+    name: postgres_data
+````
