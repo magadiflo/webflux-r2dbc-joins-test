@@ -38,6 +38,7 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
                 LEFT JOIN employees AS m ON(dm.employee_id = m.id)
                 LEFT JOIN department_employees AS de ON(d.id = de.department_id)
                 LEFT JOIN employees AS e ON(de.employee_id = e.id)
+            ORDER BY d.id
             """;
 
     @Override
@@ -45,7 +46,7 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
         return this.client.sql(SELECT_QUERY)
                 .fetch()
                 .all()
-                .bufferUntilChanged(result -> result.get("d_id"))
+                .bufferUntilChanged(rowMap -> rowMap.get("d_id"))
                 .flatMap(Department::fromRows);
     }
 

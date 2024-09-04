@@ -434,6 +434,7 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
                 LEFT JOIN employees AS m ON(dm.employee_id = m.id)
                 LEFT JOIN department_employees AS de ON(d.id = de.department_id)
                 LEFT JOIN employees AS e ON(de.employee_id = e.id)
+            ORDER BY d.id
             """;
 
     @Override
@@ -441,7 +442,7 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
         return this.client.sql(SELECT_QUERY)
                 .fetch()
                 .all()
-                .bufferUntilChanged(result -> result.get("d_id"))
+                .bufferUntilChanged(rowMap -> rowMap.get("d_id"))
                 .flatMap(Department::fromRows);
     }
 
@@ -596,7 +597,7 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
 }
 ````
 
-Analicemos en detalle lo que hace el método `findAll()`:
+## Analizando en detalle el método findAll()
 
 ````java
 
@@ -605,25 +606,100 @@ public Flux<Department> findAll() {
     return this.client.sql(SELECT_QUERY)
             .fetch()
             .all()
-            .bufferUntilChanged(result -> result.get("d_id"))
+            .bufferUntilChanged(rowMap -> rowMap.get("d_id"))
             .flatMap(Department::fromRows);
 }
 ````
 
-Primero tenemos `client.sql(SELECT_QUERY).fetch().all()`, que recupera todos los datos que solicitamos en nuestra
-consulta. Dado que estamos uniendo tablas, tendremos varias filas para cada `Department`.
-`.bufferUntilChanged(result -> result.get("d_id"))` recopila todas las mismas filas juntas en una
-`List<Map<String, Object>`, antes de pasarla finalmente a nuestra última línea que extrae los datos y devuelve
-nuestros objetos `Department`.
+**DONDE**
 
-Utilizar `.bufferUntilChanged(result -> result.get("d_id"))` es una forma eficaz de agrupar filas por departamento
-`(d_id)`. De esta manera, obtienes todos los registros relacionados con el mismo departamento en una sola emisión.
+- `this.client`, instancia de `Databaseclient` definido al inicio de la clase.
 
-Para resumir:
 
-- `.client.sql(SELECT_QUERY).fetch().all()`, obtenga todos los datos que solicitamos.
-- `.bufferUntilChanged(result -> result.get("d_id"))`, agrupe las filas en una lista según `department.id`.
-- `.flatMap(Department::fromRows)`, convierta cada conjunto de resultados en un `Department`.
+- `.sql(SELECT_QUERY)`, especifica una sentencia `SQL` estática para ejecutar.
+
+
+- `.fetch()`, realice la llamada `SQL` y recupere el resultado ingresando a la etapa de ejecución.
+
+
+- `.all()`, recupera todos los resultados de la consulta como un `Flux<Map<String, Object>>`, donde cada `Map`
+  representa una fila de la base de datos con los nombres de las columnas como claves.
+
+
+- `.bufferUntilChanged(rowMap -> rowMap.get("d_id"))`, recopilar repeticiones subsiguientes de un elemento (es decir, si
+  llegan inmediatamente una después de la otra), comparadas con una clave extraída a través de la función proporcionada
+  por el usuario, en múltiples buffers de lista que serán emitidos por el flujo resultante. En otras palabras, El método
+  `bufferUntilChanged()` agrupa las filas devueltas por la consulta basándose en el cambio del valor de la clave `d_id`.
+  El valor `rowMap.get("d_id")` extrae el valor de la columna `d_id` de cada fila. Cada vez que cambia el valor de
+  `d_id`, se inicia un nuevo grupo de filas. Esto es útil si tienes varias filas relacionadas que comparten el mismo
+  valor de `d_id` y deseas agruparlas antes de mapearlas a un objeto de dominio. Entonces, el `bufferUntilChanged()` va
+  a ir recibiendo fila tras fila y va a ir verificando que el `d_id` sea el mismo para poder agruparlos en una misma
+  lista. Si en seguida viene un `d_id` distinto, procede a retornar la lista que tenía agrupada para iniciar un nuevo
+  grupo con el nuevo `d_id` obtenido. Este método retorna un `Flux<List<Map<String, Object>>>`.
+
+
+- `.flatMap(Department::fromRows)`, toma cada grupo de filas (representado como un `List<Map<String, Object>>`) y
+  utiliza el método estático `fromRows` de la clase `Department` para convertirlo en un objeto `Department`. El método
+  `fromRows` debe estar diseñado para construir un objeto `Department` a partir de un conjunto de filas relacionadas.
+
+### Probando ejecución del método findAll()
+
+Antes de ver el comportamiento del método `findAll()` vamos a agregar unos logs para ver el resultado que va fluyendo
+por los operadores.
+
+````java
+
+@Override
+public Flux<Department> findAll() {
+    return this.client.sql(SELECT_QUERY)
+            .fetch()
+            .all()
+            .doOnNext(rowMap -> {
+                log.info(rowMap.toString());
+            })
+            .bufferUntilChanged(rowMap -> rowMap.get("d_id"))
+            .doOnNext(listRowsMap -> {
+                log.debug(listRowsMap.toString());
+            })
+            .flatMap(Department::fromRows);
+}
+````
+
+Ahora sí, realizamos una petición al endpoint para poder listar los departamentos y este es parte del resultado que
+obtenemos en la consola del ide.
+
+````bash
+ INFO DepartmentRepositoryImpl    : {d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=5, e_firstname=José, e_lastname=Pérez, e_position=Soporte, e_isfulltime=true}
+ INFO DepartmentRepositoryImpl    : {d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=7, e_firstname=Jorge, e_lastname=López, e_position=Analista, e_isfulltime=false}
+ INFO DepartmentRepositoryImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=2, e_firstname=Ana, e_lastname=Martínez, e_position=Desarrollador, e_isfulltime=true}
+DEBUG DepartmentRepositoryImpl    : [{d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=5, e_firstname=José, e_lastname=Pérez, e_position=Soporte, e_isfulltime=true}, {d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=7, e_firstname=Jorge, e_lastname=López, e_position=Analista, e_isfulltime=false}]
+ INFO DepartmentRepositoryImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=6, e_firstname=Laura, e_lastname=Sánchez, e_position=Desarrollador, e_isfulltime=true}
+ INFO DepartmentRepositoryImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=11, e_firstname=Miguel, e_lastname=Hernández, e_position=Desarrollador, e_isfulltime=true}
+ INFO DepartmentRepositoryImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=13, e_firstname=Pablo, e_lastname=Jiménez, e_position=Desarrollador, e_isfulltime=true}
+ INFO DepartmentRepositoryImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=20, e_firstname=Isabel, e_lastname=Ramos, e_position=Desarrollador, e_isfulltime=true}
+ INFO DepartmentRepositoryImpl    : {d_id=3, d_name=Finanzas, m_id=15, m_firstname=Raúl, m_lastname=Domínguez, m_position=Gerente, m_isfulltime=true, e_id=10, e_firstname=Lucía, e_lastname=Morales, e_position=Diseñador, e_isfulltime=true}
+DEBUG DepartmentRepositoryImpl    : [{d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=2, e_firstname=Ana, e_lastname=Martínez, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=6, e_firstname=Laura, e_lastname=Sánchez, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=11, e_firstname=Miguel, e_lastname=Hernández, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=13, e_firstname=Pablo, e_lastname=Jiménez, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=20, e_firstname=Isabel, e_lastname=Ramos, e_position=Desarrollador, e_isfulltime=true}]
+ INFO DepartmentRepositoryImpl    : {d_id=4, d_name=Marketing, m_id=4, m_firstname=María, m_lastname=Rodríguez, m_position=Analista, m_isfulltime=true, e_id=18, e_firstname=Marta, e_lastname=Ortega, e_position=Diseñador, e_isfulltime=false}
+DEBUG DepartmentRepositoryImpl    : [{d_id=3, d_name=Finanzas, m_id=15, m_firstname=Raúl, m_lastname=Domínguez, m_position=Gerente, m_isfulltime=true, e_id=10, e_firstname=Lucía, e_lastname=Morales, e_position=Diseñador, e_isfulltime=true}]
+ INFO DepartmentRepositoryImpl    : {d_id=4, d_name=Marketing, m_id=4, m_firstname=María, m_lastname=Rodríguez, m_position=Analista, m_isfulltime=true, e_id=12, e_firstname=Elena, e_lastname=Ruiz, e_position=Analista, e_isfulltime=false}
+ INFO DepartmentRepositoryImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=3, e_firstname=Luis, e_lastname=Fernández, e_position=Diseñador, e_isfulltime=false}
+DEBUG DepartmentRepositoryImpl    : [{d_id=4, d_name=Marketing, m_id=4, m_firstname=María, m_lastname=Rodríguez, m_position=Analista, m_isfulltime=true, e_id=18, e_firstname=Marta, e_lastname=Ortega, e_position=Diseñador, e_isfulltime=false}, {d_id=4, d_name=Marketing, m_id=4, m_firstname=María, m_lastname=Rodríguez, m_position=Analista, m_isfulltime=true, e_id=12, e_firstname=Elena, e_lastname=Ruiz, e_position=Analista, e_isfulltime=false}]
+ INFO DepartmentRepositoryImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=9, e_firstname=Manuel, e_lastname=Torres, e_position=Soporte, e_isfulltime=true}
+ INFO DepartmentRepositoryImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=14, e_firstname=Carmen, e_lastname=Navarro, e_position=Soporte, e_isfulltime=true}
+ INFO DepartmentRepositoryImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=16, e_firstname=Beatriz, e_lastname=Vargas, e_position=Desarrollador, e_isfulltime=true}
+ INFO DepartmentRepositoryImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=17, e_firstname=Francisco, e_lastname=Muñoz, e_position=Soporte, e_isfulltime=true}
+ INFO DepartmentRepositoryImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=19, e_firstname=Andrés, e_lastname=Castillo, e_position=Analista, e_isfulltime=true}
+DEBUG DepartmentRepositoryImpl    : [{d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=3, e_firstname=Luis, e_lastname=Fernández, e_position=Diseñador, e_isfulltime=false}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=9, e_firstname=Manuel, e_lastname=Torres, e_position=Soporte, e_isfulltime=true}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=14, e_firstname=Carmen, e_lastname=Navarro, e_position=Soporte, e_isfulltime=true}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=16, e_firstname=Beatriz, e_lastname=Vargas, e_position=Desarrollador, e_isfulltime=true}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=17, e_firstname=Francisco, e_lastname=Muñoz, e_position=Soporte, e_isfulltime=true}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=19, e_firstname=Andrés, e_lastname=Castillo, e_position=Analista, e_isfulltime=true}]
+````
+
+Como se observa, el operador `all()` va emitiendo uno a uno los resultados de la consulta, eso lo podemos ver en el
+log `INFO`.
+
+El operador `bufferUntilChanged()`, obtiene la fila emitida por el operador `all()`. Internamente, se extrae el valor de
+la columna `d_id`, será el criterio por el cual agrupará todas las filas que le lleguen. Si extrae un valor distinto al
+que ya había extraído anteriormente, lo que hace el operador `bufferUntilChanged()` es seguir con el flujo emitiendo un
+`Flux<List<Map<String, Object>>>` que contiene las filas agrupadas por el `d_id`. Eso es lo que observamos en el log
+`DEBUG`.
 
 ## Persistiendo entidades
 
