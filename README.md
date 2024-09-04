@@ -748,3 +748,106 @@ private Mono<Department> saveDepartmentManager(Department department) {
 
 Para resumir, persistimos nuestro `Department`, persistimos cualquier entidad anidada `(Empleado)` y luego creamos una
 relación entre los dos.
+
+## DTOs
+
+````java
+public record CreateEmployeeRequest(@NotBlank
+                                    String firstName,
+
+                                    @NotBlank
+                                    String lastName,
+
+                                    @NotBlank
+                                    String position,
+
+                                    @NotNull
+                                    Boolean isFullTime) {
+}
+````
+
+````java
+public record CreateDepartmentRequest(@NotBlank
+                                      String name) {
+}
+````
+
+## Excepciones
+
+````java
+public class EmployeeNotFoundException extends RuntimeException {
+    public EmployeeNotFoundException(Long employeeId) {
+        super("El empleado con id %d no fue encontrado".formatted(employeeId));
+    }
+}
+````
+
+````java
+public class DepartmentNotFoundException extends RuntimeException {
+    public DepartmentNotFoundException(Long departmentId) {
+        super("El departamento con id %d no fue encontrado".formatted(departmentId));
+    }
+}
+````
+
+````java
+public class DepartmentAlreadyExistsException extends RuntimeException {
+    public DepartmentAlreadyExistsException(String name) {
+        super("El departamento con nombre %s ya existe".formatted(name));
+    }
+}
+````
+
+## Manejo de excepciones
+
+````java
+public record ErrorResponse(Map<String, Object> errors) {
+}
+````
+
+````java
+
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler({
+            EmployeeNotFoundException.class,
+            DepartmentNotFoundException.class
+    })
+    public Mono<ResponseEntity<ErrorResponse>> handleNotFoundException(Exception exception) {
+        log.debug("handleNotFoundException:: {}", exception.getMessage());
+        ErrorResponse response = new ErrorResponse(Map.of("message", exception.getMessage()));
+        return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).body(response));
+    }
+
+    @ExceptionHandler(DepartmentAlreadyExistsException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleAlreadyExistsException(Exception exception) {
+        log.debug("handleAlreadyExistsException:: {}", exception.getMessage());
+        ErrorResponse response = new ErrorResponse(Map.of("message", exception.getMessage()));
+        return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response));
+    }
+
+    @ExceptionHandler(WebExchangeBindException.class)
+    public ResponseEntity<ErrorResponse> handleException(WebExchangeBindException exception) {
+        log.debug("webExchangeBindException:: {}", exception.getMessage());
+        List<String> errors = exception.getBindingResult()
+                .getAllErrors()
+                .stream()
+                .map(DefaultMessageSourceResolvable::getDefaultMessage)
+                .toList();
+        ErrorResponse response = new ErrorResponse(Map.of("errors", errors));
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleException(Exception exception) {
+        log.debug("handleException:: {}", exception.getMessage());
+        exception.printStackTrace();
+        ErrorResponse response = new ErrorResponse(Map.of("error", exception.getMessage()));
+        return ResponseEntity.badRequest().body(response);
+    }
+
+}
+````
+
