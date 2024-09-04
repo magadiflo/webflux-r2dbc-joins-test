@@ -236,3 +236,28 @@ volumes:
   postgres_data:
     name: postgres_data
 ````
+
+## Crear esquema de base de datos y poblar tablas
+
+Cada vez que iniciemos la aplicación, se ejecutarán los scripts que estamos definiendo en este `@Bean` de configuración,
+de esta manera nos aseguramos de que las tablas de la base de dato siempre estén pobladas al iniciar la aplicación.
+Cabe resaltar que aunque el archivo `schema.sql` se ejecute cada vez que se inicie la aplicación, solo se crearán las
+tablas una sola vez, dado que colocamos en las instrucciónes `DML` lo siguiente `CREATE TABLE IF NOT EXISTS...`.
+
+````java
+
+@Configuration
+public class DatabaseConfig {
+    @Bean
+    public ConnectionFactoryInitializer initializer(ConnectionFactory connectionFactory) {
+        ClassPathResource schemaResource = new ClassPathResource("schema.sql");
+        ClassPathResource dataResource = new ClassPathResource("data.sql");
+        ResourceDatabasePopulator resourceDatabasePopulator = new ResourceDatabasePopulator(schemaResource, dataResource);
+
+        ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
+        initializer.setConnectionFactory(connectionFactory);
+        initializer.setDatabasePopulator(resourceDatabasePopulator);
+        return initializer;
+    }
+}
+````
