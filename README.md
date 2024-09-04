@@ -261,3 +261,101 @@ public class DatabaseConfig {
     }
 }
 ````
+
+## Entidades
+
+A continuación se muestran las dos entidades con las que trabajaremos en este proyecto.
+
+````java
+
+@ToString
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@Setter
+@Getter
+@Table(name = "employees")
+public class Employee {
+    @Id
+    private Long id;
+    private String firstName;
+    private String lastName;
+    private String position;
+    @Column("is_full_time")
+    private boolean fullTime;
+
+    public static Employee fromRow(Map<String, Object> row) {
+        if (row.get("e_id") == null) return null;
+
+        return Employee.builder()
+                .id(Long.parseLong(row.get("e_id").toString()))
+                .firstName((String) row.get("e_firstName"))
+                .lastName((String) row.get("e_lastName"))
+                .position((String) row.get("e_position"))
+                .fullTime((Boolean) row.get("e_isFullTime"))
+                .build();
+    }
+
+    public static Employee managerFromRow(Map<String, Object> row) {
+        if (row.get("m_id") == null) return null;
+
+        return Employee.builder()
+                .id(Long.parseLong(row.get("m_id").toString()))
+                .firstName((String) row.get("m_firstName"))
+                .lastName((String) row.get("m_lastName"))
+                .position((String) row.get("m_position"))
+                .fullTime((Boolean) row.get("m_isFullTime"))
+                .build();
+    }
+}
+````
+
+````java
+
+@ToString
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@Setter
+@Getter
+@Table(name = "departments")
+public class Department {
+    @Id
+    private Long id;
+    private String name;
+
+    private Employee manager;
+
+    @Builder.Default
+    private List<Employee> employees = new ArrayList<>();
+
+    public Optional<Employee> getManager() {
+        return Optional.ofNullable(this.manager);
+    }
+
+    public static Mono<Department> fromRows(List<Map<String, Object>> rows) {
+        Department department = Department.builder()
+                .id(Long.parseLong(rows.getFirst().get("d_id").toString()))
+                .name(String.valueOf(rows.getFirst().get("d_name")))
+                .manager(Employee.managerFromRow(rows.getFirst()))
+                .employees(rows.stream()
+                        .map(Employee::fromRow)
+                        .filter(Objects::nonNull)
+                        .toList())
+                .build();
+        return Mono.just(department);
+    }
+
+}
+````
+
+`@Builder.Default`, esta anotación se usa junto con la anotación `@Builder` de `Lombok`. Cuando utilizas `@Builder` para
+generar un patrón de construcción (builder pattern), las variables de instancia que no son explícitamente establecidas
+en el proceso de construcción pueden quedar con valores null. Sin embargo, al usar `@Builder.Default`, le indicas a
+Lombok que use el valor por defecto proporcionado si no se establece un valor durante la construcción.
+
+Notarás que estas entidades tienen métodos estáticos para crear objetos a partir de una entrada. Estos son los
+resultados sin procesar de una llamada con DatabaseClient. Dado que `Spring Data R2DBC` no asigna estos objetos, tenemos
+que escribir la lógica nosotros mismos. `row.get` es nuestro mejor amigo aquí, ya que nos permite extraer cualquier
+columna y convertirla al tipo que necesitamos.
+
