@@ -851,3 +851,273 @@ public class GlobalExceptionHandler {
 }
 ````
 
+## Servicios
+
+````java
+public interface EmployeeService {
+    Flux<Employee> getAllEmployees(String position, Boolean isFullTime);
+
+    Mono<Employee> showEmployee(Long employeeId);
+
+    Mono<Employee> createEmployee(CreateEmployeeRequest employeeRequest);
+
+    Mono<Employee> updateEmployee(Long employeeId, Employee employee);
+
+    Mono<Void> deleteEmployee(Long employeeId);
+}
+
+````
+
+````java
+public interface DepartmentService {
+    Flux<Department> getAllDepartments();
+
+    Mono<Department> showDepartment(Long departmentId);
+
+    Flux<Employee> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime);
+
+    Mono<Department> createDepartment(CreateDepartmentRequest departmentRequest);
+
+    Mono<Department> updateDepartment(Long departmentId, Department department);
+
+    Mono<Void> deleteDepartment(Long departmentId);
+}
+````
+
+````java
+
+@Slf4j
+@RequiredArgsConstructor
+@Service
+@Transactional(readOnly = true)
+public class EmployeeServiceImpl implements EmployeeService {
+
+    private final EmployeeRepository employeeRepository;
+
+
+    @Override
+    public Flux<Employee> getAllEmployees(String position, Boolean isFullTime) {
+        if (position == null && isFullTime == null) {
+            return this.employeeRepository.findAll();
+        }
+
+        if (position != null & isFullTime != null) {
+            return this.employeeRepository.findAllByPositionAndFullTime(position, isFullTime);
+        }
+
+        if (position != null) {
+            return this.employeeRepository.findAllByPosition(position);
+        }
+
+        return this.employeeRepository.findAllByFullTime(isFullTime);
+    }
+
+    @Override
+    public Mono<Employee> showEmployee(Long employeeId) {
+        return this.employeeRepository.findById(employeeId)
+                .switchIfEmpty(Mono.error(new EmployeeNotFoundException(employeeId)));
+    }
+
+    @Override
+    @Transactional
+    public Mono<Employee> createEmployee(CreateEmployeeRequest employeeRequest) {
+        Employee employee = Employee.builder()
+                .firstName(employeeRequest.firstName())
+                .lastName(employeeRequest.lastName())
+                .position(employeeRequest.position())
+                .fullTime(employeeRequest.isFullTime())
+                .build();
+        return this.employeeRepository.save(employee);
+    }
+
+    @Override
+    @Transactional
+    public Mono<Employee> updateEmployee(Long employeeId, Employee employee) {
+        return this.employeeRepository.findById(employeeId)
+                .switchIfEmpty(Mono.error(new EmployeeNotFoundException(employeeId)))
+                .map(employeeDB -> {
+                    employeeDB.setFirstName(employee.getFirstName());
+                    employeeDB.setLastName(employee.getLastName());
+                    employeeDB.setPosition(employee.getPosition());
+                    employeeDB.setFullTime(employee.isFullTime());
+                    return employeeDB;
+                })
+                .flatMap(this.employeeRepository::save);
+    }
+
+    @Override
+    @Transactional
+    public Mono<Void> deleteEmployee(Long employeeId) {
+        return this.employeeRepository.findById(employeeId)
+                .switchIfEmpty(Mono.error(new EmployeeNotFoundException(employeeId)))
+                .flatMap(this.employeeRepository::delete)
+                .then();
+    }
+}
+````
+
+````java
+
+@Slf4j
+@RequiredArgsConstructor
+@Service
+@Transactional(readOnly = true)
+public class DepartmentServiceImpl implements DepartmentService {
+
+    private final DepartmentRepository departmentRepository;
+
+    @Override
+    public Flux<Department> getAllDepartments() {
+        return this.departmentRepository.findAll();
+    }
+
+    @Override
+    public Mono<Department> showDepartment(Long departmentId) {
+        return this.departmentRepository.findById(departmentId)
+                .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)));
+    }
+
+    @Override
+    public Flux<Employee> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime) {
+        if (isFullTime != null) {
+            return this.departmentRepository.findById(departmentId)
+                    .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
+                    .flatMapMany(departmentDB -> {
+                        Stream<Employee> employeeStream = departmentDB.getEmployees().stream()
+                                .filter(employee -> employee.isFullTime() == isFullTime);
+                        return Flux.fromStream(employeeStream);
+                    });
+        }
+
+        return this.departmentRepository.findById(departmentId)
+                .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
+                .flatMapMany(department -> Flux.fromIterable(department.getEmployees()));
+    }
+
+    @Override
+    @Transactional
+    public Mono<Department> createDepartment(CreateDepartmentRequest departmentRequest) {
+        return this.departmentRepository.findByName(departmentRequest.name())
+                .flatMap(departmentDB -> Mono.error(new DepartmentAlreadyExistsException(departmentRequest.name())))
+                .defaultIfEmpty(Department.builder().name(departmentRequest.name()).build())
+                .cast(Department.class)
+                .flatMap(this.departmentRepository::save);
+    }
+
+    @Override
+    @Transactional
+    public Mono<Department> updateDepartment(Long departmentId, Department department) {
+        return this.departmentRepository.findById(departmentId)
+                .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
+                .map(departmentDB -> {
+                    departmentDB.setName(department.getName());
+                    if (department.getManager().isPresent()) {
+                        departmentDB.setManager(department.getManager().get());
+                    }
+                    departmentDB.setEmployees(department.getEmployees());
+                    return departmentDB;
+                })
+                .flatMap(this.departmentRepository::save);
+    }
+
+    @Override
+    @Transactional
+    public Mono<Void> deleteDepartment(Long departmentId) {
+        return this.departmentRepository.findById(departmentId)
+                .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
+                .flatMap(this.departmentRepository::delete);
+    }
+}
+````
+
+## Controladores
+
+````java
+
+@Slf4j
+@RequiredArgsConstructor
+@RestController
+@RequestMapping(path = "/api/v1/employees")
+public class EmployeeController {
+
+    private final EmployeeService employeeService;
+
+    @GetMapping
+    public Mono<ResponseEntity<Flux<Employee>>> findAllEmployees(@RequestParam(required = false) String position,
+                                                                 @RequestParam(name = "fullTime", required = false) Boolean isFullTime) {
+        return Mono.just(ResponseEntity.ok(this.employeeService.getAllEmployees(position, isFullTime)));
+    }
+
+    @GetMapping(path = "/{employeeId}")
+    public Mono<ResponseEntity<Employee>> findEmployee(@PathVariable Long employeeId) {
+        return this.employeeService.showEmployee(employeeId)
+                .map(ResponseEntity::ok);
+    }
+
+    @PostMapping
+    public Mono<ResponseEntity<Employee>> saveEmployee(@Valid @RequestBody CreateEmployeeRequest employeeRequest) {
+        return this.employeeService.createEmployee(employeeRequest)
+                .map(employeeDB -> new ResponseEntity<>(employeeDB, HttpStatus.CREATED));
+    }
+
+    @PutMapping(path = "/{employeeId}")
+    public Mono<ResponseEntity<Employee>> updateEmployee(@PathVariable Long employeeId, @RequestBody Employee employee) {
+        return this.employeeService.updateEmployee(employeeId, employee)
+                .map(ResponseEntity::ok);
+    }
+
+    @DeleteMapping(path = "/{employeeId}")
+    public Mono<ResponseEntity<Void>> deleteEmployee(@PathVariable Long employeeId) {
+        return this.employeeService.deleteEmployee(employeeId)
+                .thenReturn(ResponseEntity.noContent().build());
+    }
+}
+````
+
+````java
+
+@Slf4j
+@RequiredArgsConstructor
+@RestController
+@RequestMapping(path = "/api/v1/departments")
+public class DepartmentController {
+
+    private final DepartmentService departmentService;
+
+    @GetMapping
+    public Mono<ResponseEntity<Flux<Department>>> findAllDepartments() {
+        return Mono.just(ResponseEntity.ok(this.departmentService.getAllDepartments()));
+    }
+
+    @GetMapping(path = "/{departmentId}")
+    public Mono<ResponseEntity<Department>> findDepartment(@PathVariable Long departmentId) {
+        return this.departmentService.showDepartment(departmentId)
+                .map(ResponseEntity::ok);
+    }
+
+    @GetMapping(path = "/{departmentId}/employees")
+    public Mono<ResponseEntity<Flux<Employee>>> getEmployeesFromDepartment(@PathVariable Long departmentId,
+                                                                           @RequestParam(name = "fullTime", required = false) Boolean isFullTime) {
+        return Mono.just(ResponseEntity.ok(this.departmentService.getEmployeesFromDepartment(departmentId, isFullTime)));
+    }
+
+    @PostMapping
+    public Mono<ResponseEntity<Department>> saveDepartment(@Valid @RequestBody CreateDepartmentRequest request) {
+        return this.departmentService.createDepartment(request)
+                .map(departmentDB -> new ResponseEntity<>(departmentDB, HttpStatus.CREATED));
+    }
+
+    @PutMapping(path = "/{departmentId}")
+    public Mono<ResponseEntity<Department>> updateDepartment(@PathVariable Long departmentId, @RequestBody Department department) {
+        return this.departmentService.updateDepartment(departmentId, department)
+                .map(ResponseEntity::ok);
+    }
+
+    @DeleteMapping(path = "/{departmentId}")
+    public Mono<ResponseEntity<Void>> deleteDepartment(@PathVariable Long departmentId) {
+        return this.departmentService.deleteDepartment(departmentId)
+                .thenReturn(ResponseEntity.noContent().build());
+    }
+
+}
+````
