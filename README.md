@@ -1,5 +1,7 @@
 # [Joins with Spring Data R2DBC](https://neilwhite.ca/joins-with-spring-data-r2dbc/)
 
+- [Repositorio del tutorial](https://github.com/neil-writes-code/reactive-spring-demo/tree/main)
+
 ---
 
 `Spring Data R2DBC` nos permite escribir código sin bloqueo para interactuar con las bases de datos. A diferencia de los
@@ -531,7 +533,6 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
         return Mono.just(department)
                 .flatMap(dep -> client.sql(QUERY)
                         .bind("departmentId", dep.getId())
-                        .bindNull("managerId", Long.class)
                         .bind("managerId", dep.getManager().orElseGet(() -> Employee.builder().id(0L).build()).getId())
                         .fetch()
                         .rowsUpdated())
@@ -624,3 +625,126 @@ Para resumir:
 - `.bufferUntilChanged(result -> result.get("d_id"))`, agrupe las filas en una lista según `department.id`.
 - `.flatMap(Department::fromRows)`, convierta cada conjunto de resultados en un `Department`.
 
+## Persistiendo entidades
+
+Recuperar una entidad es sencillo: se solicitan algunos datos y se crea un objeto a partir de ellos. Pero, ¿qué sucede
+si queremos conservar los datos? Debemos conservar el departamento, el gerente, el empleado y una lista de empleados.
+No compartiré todo el código para esto, ya que es bastante largo, pero explicaré la idea de cómo funciona.
+
+La forma más sencilla de comprender la conservación de estas entidades es mediante una `cadena de pasos`.
+Para nuestras entidades de ejemplo, se vería así:
+
+- Guardar o actualizar el `Department`
+- Guardar o actualizar el gerente (manager) `Employee`
+- Guardar o actualizar cada empleado
+- Actualizar la relación entre el `Department` y `Manager`
+- Actualizar la relación entre el `Department` y `Employee`
+
+El método público se ve exactamente como el siguiente código
+
+````java
+
+@Override
+public Mono<Department> save(Department department) {
+    return this.saveDepartment(department)
+            .flatMap(this::saveManager)
+            .flatMap(this::saveEmployees)
+            .flatMap(this::deleteDepartmentManager)
+            .flatMap(this::saveDepartmentManager)
+            .flatMap(this::deleteDepartmentEmployees)
+            .flatMap(this::saveDepartmentEmployees);
+}
+````
+
+Pasamos el `Department` inicial por cada paso, modificando el estado a medida que avanzamos.
+
+A continuación se muestra el primer paso de este proceso: `saveDepartment`.
+
+````java
+private Mono<Department> saveDepartment(Department department) {
+    if (department.getId() == null) {
+        return this.client.sql("""
+                        INSERT INTO departments(name)
+                        VALUES(:name)
+                        """)
+                .bind("name", department.getName())
+                .filter((statement, next) -> statement.returnGeneratedValues("id").execute())
+                .fetch()
+                .first()
+                .doOnNext(result -> department.setId(Long.parseLong(result.get("id").toString())))
+                .thenReturn(department);
+    }
+    return this.client.sql("""
+                    UPDATE departments
+                    SET name = :name
+                    WHERE id = :departmentId
+                    """)
+            .bind("name", department.getName())
+            .bind("departmentId", department.getId())
+            .fetch()
+            .first()
+            .thenReturn(department);
+}
+````
+
+Vemos que hay dos ramas, una para persistir una nueva entidad y otra para actualizarla. En la primera, usamos nuestro
+cliente para insertar un nuevo `Department`, devolviendo un `id`. Luego, establecemos el `id` de nuestro objeto
+`Department` antes de devolverlo para el siguiente paso. Cada paso posterior hará lo mismo, persistirá una entidad y la
+establecerá nuevamente como nuestra entidad principal.
+
+Una vez que se haya persistido el `Department`, podemos pasar a las otras entidades anidadas. Cada entidad anidada
+requiere tres pasos, que verá a continuación para el administrador del departamento.
+
+Primero persistimos el administrador. El uso de `EmployeeRepository` facilita esto, ya que no tenemos que decidir entre
+una inserción o una actualización como lo hacemos con el `Department`. Una vez que se persiste, establecemos el objeto
+de administrador del Departamento en el Empleado nuevo/actualizado.
+
+````java
+private Mono<Department> saveManager(Department department) {
+    return Mono.justOrEmpty(department.getManager())
+            .flatMap(this.employeeRepository::save)
+            .doOnNext(department::setManager)
+            .thenReturn(department);
+}
+````
+
+Una vez que se ha conservado la entidad, queremos conservar la relación entre el departamento y el empleado. Primero
+debemos eliminar cualquier relación existente.
+
+````java
+private Mono<Department> deleteDepartmentManager(Department department) {
+    final String QUERY = """
+            DELETE FROM department_managers WHERE department_id = :departmentId OR employee_id = :managerId
+            """;
+    return Mono.just(department)
+            .flatMap(dep -> client.sql(QUERY)
+                    .bind("departmentId", dep.getId())
+                    .bind("managerId", dep.getManager().orElseGet(() -> Employee.builder().id(0L).build()).getId())
+                    .fetch()
+                    .rowsUpdated())
+            .thenReturn(department);
+}
+````
+
+Luego, debemos mantener la nueva relación. Una característica útil de `Mono` es que devuelve de `0 a 1` objetos, por lo
+que si el `manager` está vacío, no se llama a `.flatMap` y pasamos a devolver el `Department` al final del método.
+
+````java
+private Mono<Department> saveDepartmentManager(Department department) {
+    final String QUERY = """
+            INSERT INTO department_managers(department_id, employee_id)
+            VALUES(:departmentId, :employeeId)
+            """;
+
+    return Mono.justOrEmpty(department.getManager())
+            .flatMap(manager -> client.sql(QUERY)
+                    .bind("departmentId", department.getId())
+                    .bind("employeeId", manager.getId())
+                    .fetch()
+                    .rowsUpdated())
+            .thenReturn(department);
+}
+````
+
+Para resumir, persistimos nuestro `Department`, persistimos cualquier entidad anidada `(Empleado)` y luego creamos una
+relación entre los dos.

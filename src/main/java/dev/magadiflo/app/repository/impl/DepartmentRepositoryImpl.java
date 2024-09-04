@@ -137,7 +137,6 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
         return Mono.just(department)
                 .flatMap(dep -> client.sql(QUERY)
                         .bind("departmentId", dep.getId())
-                        .bindNull("managerId", Long.class)
                         .bind("managerId", dep.getManager().orElseGet(() -> Employee.builder().id(0L).build()).getId())
                         .fetch()
                         .rowsUpdated())
