@@ -334,10 +334,12 @@ public class Department {
     }
 
     public static Mono<Department> fromRows(List<Map<String, Object>> rows) {
+        Map<String, Object> firstRow = rows.getFirst();
+
         Department department = Department.builder()
-                .id(Long.parseLong(rows.getFirst().get("d_id").toString()))
-                .name(String.valueOf(rows.getFirst().get("d_name")))
-                .manager(Employee.managerFromRow(rows.getFirst()))
+                .id(Long.parseLong(firstRow.get("d_id").toString()))
+                .name(String.valueOf(firstRow.get("d_name")))
+                .manager(Employee.managerFromRow(firstRow))
                 .employees(rows.stream()
                         .map(Employee::fromRow)
                         .filter(Objects::nonNull)
@@ -358,4 +360,267 @@ Notarás que estas entidades tienen métodos estáticos para crear objetos a par
 resultados sin procesar de una llamada con DatabaseClient. Dado que `Spring Data R2DBC` no asigna estos objetos, tenemos
 que escribir la lógica nosotros mismos. `row.get` es nuestro mejor amigo aquí, ya que nos permite extraer cualquier
 columna y convertirla al tipo que necesitamos.
+
+## Repositorios
+
+Antes dije que los repositorios estándar son adecuados para entidades sin relaciones. Lo que significa que todo lo que
+tenemos que hacer para `Employee` es crear nuestra interfaz que extienda de `R2dbcRepository`. Además, estamos creando
+consultas personalizadas usando las convenciones de nombre de método.
+
+````java
+public interface EmployeeRepository extends R2dbcRepository<Employee, Long> {
+    Flux<Employee> findAllByPosition(String position);
+
+    Flux<Employee> findAllByFullTime(boolean isFullTime);
+
+    Flux<Employee> findAllByPositionAndFullTime(String position, boolean isFullTime);
+
+    Mono<Employee> findByFirstName(String firstName);
+}
+````
+
+Ahora, si revisamos la entidad `Department`, esta entidad está relacionada con `Employee` a través de los atributos
+`manager` y `employees`, por lo que crear una interfaz y extenderla de `R2dbcRepository` no es lo adecuado para traer
+los datos relacionados.
+
+Lo que haremos en este caso, será crear una interfaz y luego crearemos su propia implementación. Para mantener el mismo
+patrón para el `Department`, necesitamos una interfaz y una clase de implementación, `DepartmentRepository` y
+`DepartmentRepositoryImpl`.
+
+````java
+public interface DepartmentRepository {
+    Flux<Department> findAll();
+
+    Mono<Department> findById(Long departmentId);
+
+    Mono<Department> findByName(String name);
+
+    Mono<Department> save(Department department);
+
+    Mono<Void> delete(Department department);
+}
+````
+
+Damos a cada columna un alias para utilizar al extraer datos para crear nuestros objetos, como se ve en la siguiente
+clase de entidad. `No es necesario utilizar alias`, **pero puede resultar útil si el nombre de una columna no coincide
+con el nombre del campo.**
+
+````java
+
+@Slf4j
+@RequiredArgsConstructor
+@Repository
+public class DepartmentRepositoryImpl implements DepartmentRepository {
+
+    private final EmployeeRepository employeeRepository;
+    private final DatabaseClient client;
+    private static final String SELECT_QUERY = """
+            SELECT d.id AS d_id,
+                    d.name AS d_name,
+                    m.id AS m_id,
+                    m.first_name AS m_firstName,
+                    m.last_name AS m_lastName,
+                    m.position AS m_position,
+                    m.is_full_time AS m_isFullTime,
+                    e.id AS e_id,
+                    e.first_name AS e_firstName,
+                    e.last_name AS e_lastName,
+                    e.position AS e_position,
+                    e.is_full_time AS e_isFullTime
+            FROM departments AS d
+                LEFT JOIN department_managers AS dm ON(d.id = dm.department_id)
+                LEFT JOIN employees AS m ON(dm.employee_id = m.id)
+                LEFT JOIN department_employees AS de ON(d.id = de.department_id)
+                LEFT JOIN employees AS e ON(de.employee_id = e.id)
+            """;
+
+    @Override
+    public Flux<Department> findAll() {
+        return this.client.sql(SELECT_QUERY)
+                .fetch()
+                .all()
+                .bufferUntilChanged(result -> result.get("d_id"))
+                .flatMap(Department::fromRows);
+    }
+
+    @Override
+    public Mono<Department> findById(Long departmentId) {
+        return this.client.sql("%s WHERE d.id = :departmentId".formatted(SELECT_QUERY))
+                .bind("departmentId", departmentId)
+                .fetch()
+                .all()
+                .bufferUntilChanged(result -> result.get("d_id"))
+                .flatMap(Department::fromRows)
+                .singleOrEmpty();
+    }
+
+    @Override
+    public Mono<Department> findByName(String name) {
+        return this.client.sql("%s WHERE d.name = :name".formatted(SELECT_QUERY))
+                .bind("name", name)
+                .fetch()
+                .all()
+                .bufferUntilChanged(result -> result.get("d_id"))
+                .flatMap(Department::fromRows)
+                .singleOrEmpty();
+    }
+
+    @Override
+    public Mono<Department> save(Department department) {
+        return this.saveDepartment(department)
+                .flatMap(this::saveManager)
+                .flatMap(this::saveEmployees)
+                .flatMap(this::deleteDepartmentManager)
+                .flatMap(this::saveDepartmentManager)
+                .flatMap(this::deleteDepartmentEmployees)
+                .flatMap(this::saveDepartmentEmployees);
+    }
+
+    @Override
+    public Mono<Void> delete(Department department) {
+        return this.deleteDepartmentManager(department)
+                .flatMap(this::deleteDepartmentEmployees)
+                .flatMap(this::deleteDepartment)
+                .then();
+    }
+
+    private Mono<Department> saveDepartment(Department department) {
+        if (department.getId() == null) {
+            return this.client.sql("""
+                            INSERT INTO departments(name)
+                            VALUES(:name)
+                            """)
+                    .bind("name", department.getName())
+                    .filter((statement, next) -> statement.returnGeneratedValues("id").execute())
+                    .fetch()
+                    .first()
+                    .doOnNext(result -> department.setId(Long.parseLong(result.get("id").toString())))
+                    .thenReturn(department);
+        }
+        return this.client.sql("""
+                        UPDATE departments
+                        SET name = :name
+                        WHERE id = :departmentId
+                        """)
+                .bind("name", department.getName())
+                .bind("departmentId", department.getId())
+                .fetch()
+                .first()
+                .thenReturn(department);
+    }
+
+    private Mono<Department> saveManager(Department department) {
+        return Mono.justOrEmpty(department.getManager())
+                .flatMap(this.employeeRepository::save)
+                .doOnNext(department::setManager)
+                .thenReturn(department);
+    }
+
+    private Mono<Department> saveEmployees(Department department) {
+        return Flux.fromIterable(department.getEmployees())
+                .flatMap(this.employeeRepository::save)
+                .collectList()
+                .doOnNext(department::setEmployees)
+                .thenReturn(department);
+    }
+
+    private Mono<Department> deleteDepartmentManager(Department department) {
+        final String QUERY = """
+                DELETE FROM department_managers WHERE department_id = :departmentId OR employee_id = :managerId
+                """;
+        return Mono.just(department)
+                .flatMap(dep -> client.sql(QUERY)
+                        .bind("departmentId", dep.getId())
+                        .bindNull("managerId", Long.class)
+                        .bind("managerId", dep.getManager().orElseGet(() -> Employee.builder().id(0L).build()).getId())
+                        .fetch()
+                        .rowsUpdated())
+                .thenReturn(department);
+    }
+
+    private Mono<Department> saveDepartmentManager(Department department) {
+        final String QUERY = """
+                INSERT INTO department_managers(department_id, employee_id)
+                VALUES(:departmentId, :employeeId)
+                """;
+
+        return Mono.justOrEmpty(department.getManager())
+                .flatMap(manager -> client.sql(QUERY)
+                        .bind("departmentId", department.getId())
+                        .bind("employeeId", manager.getId())
+                        .fetch()
+                        .rowsUpdated())
+                .thenReturn(department);
+    }
+
+    private Mono<Department> deleteDepartmentEmployees(Department department) {
+        final String QUERY = """
+                DELETE FROM department_employees WHERE department_id = :departmentId OR employee_id IN (:employeeIds)
+                """;
+
+        List<Long> employeeIds = department.getEmployees().stream().map(Employee::getId).toList();
+
+        return Mono.just(department)
+                .flatMap(dep -> client.sql(QUERY)
+                        .bind("departmentId", department.getId())
+                        .bind("employeeIds", employeeIds.isEmpty() ? List.of(0) : employeeIds)
+                        .fetch()
+                        .rowsUpdated())
+                .thenReturn(department);
+    }
+
+    private Mono<Department> saveDepartmentEmployees(Department department) {
+        final String QUERY = """
+                INSERT INTO department_employees(department_id, employee_id)
+                VALUES(:departmentId, :employeeId)
+                """;
+
+        return Flux.fromIterable(department.getEmployees())
+                .flatMap(employee -> client.sql(QUERY)
+                        .bind("departmentId", department.getId())
+                        .bind("employeeId", employee.getId())
+                        .fetch()
+                        .rowsUpdated())
+                .collectList()
+                .thenReturn(department);
+    }
+
+    private Mono<Void> deleteDepartment(Department department) {
+        return this.client.sql("DELETE FROM departments WHERE id = :departmentId")
+                .bind("departmentId", department.getId())
+                .fetch()
+                .first()
+                .then();
+    }
+}
+````
+
+Analicemos en detalle lo que hace el método `findAll()`:
+
+````java
+
+@Override
+public Flux<Department> findAll() {
+    return this.client.sql(SELECT_QUERY)
+            .fetch()
+            .all()
+            .bufferUntilChanged(result -> result.get("d_id"))
+            .flatMap(Department::fromRows);
+}
+````
+
+Primero tenemos `client.sql(SELECT_QUERY).fetch().all()`, que recupera todos los datos que solicitamos en nuestra
+consulta. Dado que estamos uniendo tablas, tendremos varias filas para cada `Department`.
+`.bufferUntilChanged(result -> result.get("d_id"))` recopila todas las mismas filas juntas en una
+`List<Map<String, Object>`, antes de pasarla finalmente a nuestra última línea que extrae los datos y devuelve
+nuestros objetos `Department`.
+
+Utilizar `.bufferUntilChanged(result -> result.get("d_id"))` es una forma eficaz de agrupar filas por departamento
+`(d_id)`. De esta manera, obtienes todos los registros relacionados con el mismo departamento en una sola emisión.
+
+Para resumir:
+
+- `.client.sql(SELECT_QUERY).fetch().all()`, obtenga todos los datos que solicitamos.
+- `.bufferUntilChanged(result -> result.get("d_id"))`, agrupe las filas en una lista según `department.id`.
+- `.flatMap(Department::fromRows)`, convierta cada conjunto de resultados en un `Department`.
 

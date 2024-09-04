@@ -29,10 +29,12 @@ public class Department {
     }
 
     public static Mono<Department> fromRows(List<Map<String, Object>> rows) {
+        Map<String, Object> firstRow = rows.getFirst();
+
         Department department = Department.builder()
-                .id(Long.parseLong(rows.getFirst().get("d_id").toString()))
-                .name(String.valueOf(rows.getFirst().get("d_name")))
-                .manager(Employee.managerFromRow(rows.getFirst()))
+                .id(Long.parseLong(firstRow.get("d_id").toString()))
+                .name(String.valueOf(firstRow.get("d_name")))
+                .manager(Employee.managerFromRow(firstRow))
                 .employees(rows.stream()
                         .map(Employee::fromRow)
                         .filter(Objects::nonNull)
