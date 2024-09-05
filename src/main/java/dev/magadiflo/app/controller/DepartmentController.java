@@ -1,6 +1,7 @@
 package dev.magadiflo.app.controller;
 
 import dev.magadiflo.app.model.dto.CreateDepartmentRequest;
+import dev.magadiflo.app.model.dto.DepartmentResponse;
 import dev.magadiflo.app.model.entity.Department;
 import dev.magadiflo.app.model.entity.Employee;
 import dev.magadiflo.app.service.DepartmentService;
@@ -27,7 +28,13 @@ public class DepartmentController {
     }
 
     @GetMapping(path = "/{departmentId}")
-    public Mono<ResponseEntity<Department>> findDepartment(@PathVariable Long departmentId) {
+    public Mono<ResponseEntity<DepartmentResponse>> findDepartment(@PathVariable Long departmentId) {
+        return this.departmentService.showDepartment(departmentId)
+                .map(ResponseEntity::ok);
+    }
+
+    @GetMapping(path = "/{departmentId}/manager-employees")
+    public Mono<ResponseEntity<Department>> findWithManagerAndEmployees(@PathVariable Long departmentId) {
         return this.departmentService.showDepartmentWithManagerAndEmployees(departmentId)
                 .map(ResponseEntity::ok);
     }

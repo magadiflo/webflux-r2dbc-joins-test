@@ -393,6 +393,8 @@ patrón para el `Department`, necesitamos una interfaz y una clase de implementa
 public interface DepartmentRepository {
     Flux<Department> findAll();
 
+    Mono<Department> findById(Long departmentId);
+
     Mono<Department> findDepartmentWithManagerAndEmployees(Long departmentId);
 
     Mono<Department> findByName(String name);
@@ -443,6 +445,22 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
                 .all()
                 .bufferUntilChanged(rowMap -> rowMap.get("d_id"))
                 .flatMap(Department::fromRows);
+    }
+
+    @Override
+    public Mono<Department> findById(Long departmentId) {
+        return this.client.sql("""
+                        SELECT id, name
+                        FROM departments
+                        WHERE id = :departmentId
+                        """)
+                .bind("departmentId", departmentId)
+                .map((row, rowMetadata) -> Department.builder()
+                        .id(row.get("id", Long.class))
+                        .name(row.get("name", String.class))
+                        .build()
+                )
+                .first();
     }
 
     @Override
@@ -700,6 +718,73 @@ que ya había extraído anteriormente, lo que hace el operador `bufferUntilChang
 `Flux<List<Map<String, Object>>>` que contiene las filas agrupadas por el `d_id`. Eso es lo que observamos en el log
 `DEBUG`.
 
+## Analizando en detalle el método findById()
+
+````java
+
+@Override
+public Mono<Department> findById(Long departmentId) {
+    return this.client.sql("""
+                    SELECT id, name
+                    FROM departments
+                    WHERE id = :departmentId
+                    """)
+            .bind("departmentId", departmentId)
+            .map((row, rowMetadata) -> Department.builder()
+                    .id(row.get("id", Long.class))
+                    .name(row.get("name", String.class))
+                    .build()
+            )
+            .first();
+}
+````
+
+**DONDE**
+
+- `this.client.sql(...)`, utiliza el `DatabaseClient` inyectado para ejecutar la consulta `SQL`. `DatabaseClient` es una
+  alternativa reactiva a `JdbcTemplate` en `Spring Data R2DBC`.
+
+
+- `.bind("departmentId", departmentId)`, este método enlaza el valor del parámetro departmentId a la variable :
+  departmentId utilizada en la consulta SQL. Esto es necesario para reemplazar el parámetro nombrado con el valor real
+  proporcionado por el usuario o el sistema.
+
+
+- `.map((row, rowMetadata) -> ...)`, configurar una función de mapeo de resultados e `ingresar a la etapa de ejecución`.
+  El parámetro es un `mappingFunction`, una función que mapea desde `Row` y `RowMetadata` al tipo de resultado. Retorna
+  un `RowsFetchSpec` para configurar qué buscar.
+
+
+- `.first()`, obtiene el primer resultado o ningún resultado. Retorna un `Mono` que emite el primer elemento o un
+  `Mono.empty()` si no se encuentra ninguna coincidencia.
+
+El método `findById()`, lo hubiéramos podido realizar tal como hicimos el `findAll()`, es decir, de esta manera:
+
+````java
+
+@Override
+public Mono<Department> findById(Long departmentId) {
+    return this.client.sql("""
+                    SELECT id, name
+                    FROM departments
+                    WHERE id = :departmentId
+                    """)
+            .bind("departmentId", departmentId)
+            .fetch()
+            .one()
+            .map(rowMap -> Department.builder()
+                    .id(Long.parseLong(rowMap.get("id").toString()))
+                    .name(String.valueOf(rowMap.get("name")))
+                    .build());
+}
+````
+
+Pero aquí, después del `.bind()` estamos usando el `.fetch()`, luego el operador `.one()` y finalmente el
+`.map()` para realizar la conversión. Lo distinto aquí es que en este `.map()` estamos recibiendo un
+`Map<String, Object>>` y luego parsear el tipo de dato, mientras que en la primera forma que usamos con el
+`.map().first()`, allí recibimos un `mappingFunction` con el que podemos parsear directamente, tal como se ve
+a continuación `row.get("id", Long.class)`. Así que esta segunda forma lo coloco solo para tenerlo presente.
+
 ## Persistiendo entidades
 
 Recuperar una entidad es sencillo: se solicitan algunos datos y se crea un objeto a partir de ellos. Pero, ¿qué sucede
@@ -847,6 +932,23 @@ public record CreateDepartmentRequest(@NotBlank
 }
 ````
 
+````java
+
+@ToString
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@Setter
+@Getter
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class DepartmentResponse {
+    private Long id;
+    private String name;
+    private Employee manager;
+    private List<Employee> employees;
+}
+````
+
 ## Excepciones
 
 ````java
@@ -947,6 +1049,8 @@ public interface EmployeeService {
 public interface DepartmentService {
     Flux<Department> getAllDepartments();
 
+    Mono<DepartmentResponse> showDepartment(Long departmentId);
+
     Mono<Department> showDepartmentWithManagerAndEmployees(Long departmentId);
 
     Flux<Employee> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime);
@@ -1044,6 +1148,16 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     public Flux<Department> getAllDepartments() {
         return this.departmentRepository.findAll();
+    }
+
+    @Override
+    public Mono<DepartmentResponse> showDepartment(Long departmentId) {
+        return this.departmentRepository.findById(departmentId)
+                .map(departmentDB -> DepartmentResponse.builder()
+                        .id(departmentDB.getId())
+                        .name(departmentDB.getName())
+                        .build())
+                .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)));
     }
 
     @Override
@@ -1165,7 +1279,13 @@ public class DepartmentController {
     }
 
     @GetMapping(path = "/{departmentId}")
-    public Mono<ResponseEntity<Department>> findDepartment(@PathVariable Long departmentId) {
+    public Mono<ResponseEntity<DepartmentResponse>> findDepartment(@PathVariable Long departmentId) {
+        return this.departmentService.showDepartment(departmentId)
+                .map(ResponseEntity::ok);
+    }
+
+    @GetMapping(path = "/{departmentId}/manager-employees")
+    public Mono<ResponseEntity<Department>> findWithManagerAndEmployees(@PathVariable Long departmentId) {
         return this.departmentService.showDepartmentWithManagerAndEmployees(departmentId)
                 .map(ResponseEntity::ok);
     }
@@ -1250,7 +1370,19 @@ De la misma manera que se hizo con los employees, aquí también realizaremos un
 para tener una idea de su funcionamiento.
 
 ````bash
-$ curl -v http://localhost:8080/api/v1/departments/4 | jq
+$ curl -v http://localhost:8080/api/v1/departments/1 | jq
+>
+< HTTP/1.1 200 OK
+< Content-Type: application/json
+<
+{
+  "id": 1,
+  "name": "Recursos Humanos"
+}
+````
+
+````bash
+$ curl -v http://localhost:8080/api/v1/departments/4/manager-employees | jq
 >
 < HTTP/1.1 200 OK
 <

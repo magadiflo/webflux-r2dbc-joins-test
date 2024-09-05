@@ -7,6 +7,8 @@ import reactor.core.publisher.Mono;
 public interface DepartmentRepository {
     Flux<Department> findAll();
 
+    Mono<Department> findById(Long departmentId);
+
     Mono<Department> findDepartmentWithManagerAndEmployees(Long departmentId);
 
     Mono<Department> findByName(String name);

@@ -1,6 +1,7 @@
 package dev.magadiflo.app.service;
 
 import dev.magadiflo.app.model.dto.CreateDepartmentRequest;
+import dev.magadiflo.app.model.dto.DepartmentResponse;
 import dev.magadiflo.app.model.entity.Department;
 import dev.magadiflo.app.model.entity.Employee;
 import reactor.core.publisher.Flux;
@@ -8,6 +9,8 @@ import reactor.core.publisher.Mono;
 
 public interface DepartmentService {
     Flux<Department> getAllDepartments();
+
+    Mono<DepartmentResponse> showDepartment(Long departmentId);
 
     Mono<Department> showDepartmentWithManagerAndEmployees(Long departmentId);
 

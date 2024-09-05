@@ -50,6 +50,22 @@ public class DepartmentRepositoryImpl implements DepartmentRepository {
     }
 
     @Override
+    public Mono<Department> findById(Long departmentId) {
+        return this.client.sql("""
+                        SELECT id, name
+                        FROM departments
+                        WHERE id = :departmentId
+                        """)
+                .bind("departmentId", departmentId)
+                .map((row, rowMetadata) -> Department.builder()
+                        .id(row.get("id", Long.class))
+                        .name(row.get("name", String.class))
+                        .build()
+                )
+                .first();
+    }
+
+    @Override
     public Mono<Department> findDepartmentWithManagerAndEmployees(Long departmentId) {
         return this.client.sql("%s WHERE d.id = :departmentId".formatted(SELECT_QUERY))
                 .bind("departmentId", departmentId)

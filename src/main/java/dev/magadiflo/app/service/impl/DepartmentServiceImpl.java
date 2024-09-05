@@ -3,6 +3,7 @@ package dev.magadiflo.app.service.impl;
 import dev.magadiflo.app.exception.DepartmentAlreadyExistsException;
 import dev.magadiflo.app.exception.DepartmentNotFoundException;
 import dev.magadiflo.app.model.dto.CreateDepartmentRequest;
+import dev.magadiflo.app.model.dto.DepartmentResponse;
 import dev.magadiflo.app.model.entity.Department;
 import dev.magadiflo.app.model.entity.Employee;
 import dev.magadiflo.app.repository.DepartmentRepository;
@@ -27,6 +28,16 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     public Flux<Department> getAllDepartments() {
         return this.departmentRepository.findAll();
+    }
+
+    @Override
+    public Mono<DepartmentResponse> showDepartment(Long departmentId) {
+        return this.departmentRepository.findById(departmentId)
+                .map(departmentDB -> DepartmentResponse.builder()
+                        .id(departmentDB.getId())
+                        .name(departmentDB.getName())
+                        .build())
+                .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)));
     }
 
     @Override
