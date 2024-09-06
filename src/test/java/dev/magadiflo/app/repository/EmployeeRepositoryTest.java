@@ -31,7 +31,7 @@ class EmployeeRepositoryTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        Path dataPath = Paths.get("src/test/resources/data-test.sql");
+        Path dataPath = Paths.get("src/test/resources/data.sql");
         byte[] readData = Files.readAllBytes(dataPath);
         String dataSql = new String(readData);
 

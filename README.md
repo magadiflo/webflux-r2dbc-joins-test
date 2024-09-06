@@ -1516,7 +1516,7 @@ logging:
 Ahora, el siguiente paso es crear la estructura de las tablas y poblarlas para la realización de los test. En este caso
 la configuración será similar a lo que hicimos en el `/main`.
 
-Primero empezamos creando el archivo `src/test/resources/schema-test.sql`.
+Primero empezamos creando el archivo `src/test/resources/schema.sql`.
 
 ````sql
 CREATE TABLE IF NOT EXISTS departments(
@@ -1552,7 +1552,7 @@ CREATE TABLE IF NOT EXISTS department_employees(
 );
 ````
 
-A continuación, creamos el archivo `src/test/resources/data-test.sql`.
+A continuación, creamos el archivo `src/test/resources/data.sql`.
 
 ````sql
 TRUNCATE TABLE departments RESTART IDENTITY CASCADE;
@@ -1593,8 +1593,8 @@ anteriormente mostrados. Esta configuración la crearemos en
 public class TestDatabaseConfig {
     @Bean
     public ConnectionFactoryInitializer initializer(ConnectionFactory connectionFactory) {
-        ClassPathResource schemaResource = new ClassPathResource("schema-test.sql");
-        ClassPathResource dataResource = new ClassPathResource("data-test.sql");
+        ClassPathResource schemaResource = new ClassPathResource("schema.sql");
+        ClassPathResource dataResource = new ClassPathResource("data.sql");
         ResourceDatabasePopulator resourceDatabasePopulator = new ResourceDatabasePopulator(schemaResource, dataResource);
 
         ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
@@ -1624,9 +1624,9 @@ inicializar la base de datos de prueba. Aquí hay una descripción de los compon
     - Se configura con un `ConnectionFactory`, que es responsable de establecer conexiones a la base de datos.
 
 - `ResourceDatabasePopulator`:
-    - Este objeto se encarga de ejecutar scripts SQL (en este caso, `schema-test.sql` y `data-test.sql`) para crear y
+    - Este objeto se encarga de ejecutar scripts SQL (en este caso, `schema.sql` y `data.sql`) para crear y
       poblar la base de datos.
-    - Los archivos `schema-test.sql` y `data-test.sql` deben estar en el classpath del proyecto, y se ejecutarán al
+    - Los archivos `schema.sql` y `data.sql` deben estar en el classpath del proyecto, y se ejecutarán al
       iniciar el contexto de prueba.
 
 ## Clase de prueba para el repositorio EmployeeRepository
@@ -1648,7 +1648,7 @@ class EmployeeRepositoryTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        Path dataPath = Paths.get("src/test/resources/data-test.sql");
+        Path dataPath = Paths.get("src/test/resources/data.sql");
         byte[] readData = Files.readAllBytes(dataPath);
         String dataSql = new String(readData);
 
