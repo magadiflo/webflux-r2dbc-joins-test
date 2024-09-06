@@ -12,6 +12,17 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  postgres-test:
+    image: postgres:15.2-alpine
+    container_name: c-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: db_webflux_r2dbc_test
+      POSTGRES_USER: magadiflo
+      POSTGRES_PASSWORD: magadiflo
+    ports:
+      - '5434:5432'
+
 volumes:
   postgres_data:
     name: postgres_data

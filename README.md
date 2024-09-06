@@ -377,7 +377,7 @@ public interface EmployeeRepository extends R2dbcRepository<Employee, Long> {
 
     Flux<Employee> findAllByPositionAndFullTime(String position, boolean isFullTime);
 
-    Mono<Employee> findByFirstName(String firstName);
+    Flux<Employee> findByFirstName(String firstName);
 }
 ````
 
@@ -1446,3 +1446,370 @@ $ curl -v -X PUT -H "Content-Type: application/json" -d "{\"name\": \"Legalizado
   "employees": []
 } 
 ````
+
+---
+
+# Spring Boot Test - Reactor Test
+
+---
+
+## Test de Repositorios (DataR2dbcTest)
+
+Para la realización de los test a nuestros repositorios con `R2DBC` utilizamos la anotación `@DataR2dbcTest`, lo que en
+`Spring Data JPA` sería la anotación `@DataJpaTest`.
+
+### [Auto-configured Data R2DBC Tests](https://docs.spring.io/spring-boot/reference/testing/spring-boot-applications.html#testing.spring-boot-applications.autoconfigured-spring-data-r2dbc)
+
+`@DataR2dbcTest` es similar a `@DataJdbcTest`, pero está destinado a pruebas que utilizan repositorios
+`Spring Data R2DBC`. De manera predeterminada, configura una base de datos integrada en memoria, una
+`R2dbcEntityTemplate` y repositorios `Spring Data R2DBC`. Los beans `@Component` y `@ConfigurationProperties`
+habituales no se escanean cuando se utiliza la anotación `@DataR2dbcTest`, es decir, el escaneo de componentes
+se limita a los repositorios y entidades de `R2DBC (@Table)`. `@EnableConfigurationProperties` se puede
+utilizar para incluir beans `@ConfigurationProperties`.
+
+**IMPORTANTE**
+> De manera predeterminada, los tests de `Data R2DBC no son transaccionales`.
+
+Si prefiere que la prueba se ejecute en una base de datos real, puede usar la anotación `@AutoConfigureTestDatabase`
+de la misma manera que para `@DataJpaTest`. (Consulte Pruebas de Data JPA configuradas automáticamente).
+
+## Nuevo contenedor de postgres para ejecución de pruebas
+
+En el archivo `compose.yml` agregaré un nuevo servicio que nos permitirá crear un contenedor de postgres exclusivamente
+para la realización de los test.
+
+````yml
+# another service
+#
+services:
+  postgres-test:
+    image: postgres:15.2-alpine
+    container_name: c-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: db_webflux_r2dbc_test
+      POSTGRES_USER: magadiflo
+      POSTGRES_PASSWORD: magadiflo
+    ports:
+      - '5434:5432'
+````
+
+## Configura application.yml en test
+
+Vamos a crear el archivo de propiedades `src/test/resources/application.yml` donde configuraremos la conexión a la
+base de datos de prueba `db_webflux_r2dbc_test` que hemos creado en el contenedor anterior.
+
+````yml
+spring:
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5434/db_webflux_r2dbc_test
+    username: magadiflo
+    password: magadiflo
+
+logging:
+  level:
+    dev.magadiflo.app: DEBUG
+    io.r2dbc.postgresql.QUERY: DEBUG
+    io.r2dbc.postgresql.PARAM: DEBUG
+````
+
+Ahora, el siguiente paso es crear la estructura de las tablas y poblarlas para la realización de los test. En este caso
+la configuración será similar a lo que hicimos en el `/main`.
+
+Primero empezamos creando el archivo `src/test/resources/schema-test.sql`.
+
+````sql
+CREATE TABLE IF NOT EXISTS departments(
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS employees(
+    id BIGSERIAL PRIMARY KEY,
+    first_name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(255) NOT NULL,
+    position VARCHAR(255) NOT NULL,
+    is_full_time BOOLEAN NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS department_managers(
+    department_id BIGINT,
+    employee_id BIGINT,
+    CONSTRAINT pk_dm PRIMARY KEY(department_id, employee_id),
+    CONSTRAINT fk_departments_dm FOREIGN KEY(department_id) REFERENCES departments(id),
+    CONSTRAINT fk_employees_dm FOREIGN KEY(employee_id) REFERENCES employees(id),
+    CONSTRAINT uk_department_id_dm UNIQUE(department_id),
+    CONSTRAINT uk_employee_id_dm UNIQUE(employee_id)
+);
+
+CREATE TABLE IF NOT EXISTS department_employees(
+    department_id BIGINT,
+    employee_id BIGINT,
+    CONSTRAINT pk_de PRIMARY KEY(department_id, employee_id),
+    CONSTRAINT fk_departments_de FOREIGN KEY(department_id) REFERENCES departments(id),
+    CONSTRAINT fk_employees_de FOREIGN KEY(employee_id) REFERENCES employees(id),
+    CONSTRAINT uk_employee_id_de UNIQUE(employee_id)
+);
+````
+
+A continuación, creamos el archivo `src/test/resources/data-test.sql`.
+
+````sql
+TRUNCATE TABLE departments RESTART IDENTITY CASCADE;
+TRUNCATE TABLE employees RESTART IDENTITY CASCADE;
+
+INSERT INTO departments(name)
+VALUES('Tecnología'),
+('Ventas'),
+('Legal'),
+('Soporte');
+
+INSERT INTO employees(first_name, last_name, position, is_full_time)
+VALUES('Martín', 'Díaz', 'Gerente', true),
+('Katherine', 'Fernández', 'Desarrollador', true),
+('Vanessa', 'Bello', 'Diseñador', false),
+('Melissa', 'Peralta', 'Gerente', true),
+('Alexander', 'Villanueva', 'Vendedor', true),
+('Lizbeth', 'Gonzales', 'Teacher', true),
+('Jorge', 'Gayoso', 'Teacher', true);
+
+INSERT INTO department_managers(department_id, employee_id)
+VALUES(1, 1),
+(2, 4);
+
+INSERT INTO department_employees(department_id, employee_id)
+VALUES(1, 2),
+(1,3),
+(2,5);
+````
+
+Ahora sí, viene la configuración que mencionaba, crearemos un `@Bean` que nos permitirá ejecutar los dos scripts
+anteriormente mostrados. Esta configuración la crearemos en
+`src/test/java/dev/magadiflo/app/config/TestDatabaseConfig.java`.
+
+````java
+
+@TestConfiguration
+public class TestDatabaseConfig {
+    @Bean
+    public ConnectionFactoryInitializer initializer(ConnectionFactory connectionFactory) {
+        ClassPathResource schemaResource = new ClassPathResource("schema-test.sql");
+        ClassPathResource dataResource = new ClassPathResource("data-test.sql");
+        ResourceDatabasePopulator resourceDatabasePopulator = new ResourceDatabasePopulator(schemaResource, dataResource);
+
+        ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
+        initializer.setConnectionFactory(connectionFactory);
+        initializer.setDatabasePopulator(resourceDatabasePopulator);
+        return initializer;
+    }
+}
+````
+
+`@TestConfiguration`, internamente, tiene la anotación `@Configuration`. El `@TestConfiguration` se puede utilizar
+para definir beans adicionales o personalizaciones para una prueba. A diferencia de las clases `@Configuration`
+habituales, el uso de `@TestConfiguration` no impide la detección automática de `@SpringBootConfiguration`.
+
+La anotación `@TestConfiguration` indica que la clase contiene definiciones de beans que son específicas para el entorno
+de pruebas. Esto significa que los beans definidos en esta clase solo estarán disponibles en el contexto de prueba y no
+afectarán a la configuración de la aplicación principal.
+
+Al usar `@TestConfiguration`, puedes definir beans que solo serán utilizados durante las pruebas, lo que ayuda a
+mantener un aislamiento adecuado entre el código de producción y el código de prueba.
+
+La clase `TestDatabaseConfig` contiene un método que devuelve un `ConnectionFactoryInitializer`, que se utiliza para
+inicializar la base de datos de prueba. Aquí hay una descripción de los componentes:
+
+- `ConnectionFactoryInitializer`:
+    - Se utiliza para inicializar la base de datos con un esquema y datos específicos.
+    - Se configura con un `ConnectionFactory`, que es responsable de establecer conexiones a la base de datos.
+
+- `ResourceDatabasePopulator`:
+    - Este objeto se encarga de ejecutar scripts SQL (en este caso, `schema-test.sql` y `data-test.sql`) para crear y
+      poblar la base de datos.
+    - Los archivos `schema-test.sql` y `data-test.sql` deben estar en el classpath del proyecto, y se ejecutarán al
+      iniciar el contexto de prueba.
+
+## Clase de prueba para el repositorio EmployeeRepository
+
+A continuación mostraré la prueba de integración realizada al repositorio `EmployeeRepository`. Recordar que en estas
+pruebas estarémos trabajando con una nueva base de datos de `postgres`, misma que definimos en el archivo `compose.yml`.
+
+````java
+
+@DataR2dbcTest
+@ContextConfiguration(classes = {TestDatabaseConfig.class})
+class EmployeeRepositoryTest {
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    @Autowired
+    private DatabaseClient databaseClient;
+
+    @BeforeEach
+    void setUp() throws IOException {
+        Path dataPath = Paths.get("src/test/resources/data-test.sql");
+        byte[] readData = Files.readAllBytes(dataPath);
+        String dataSql = new String(readData);
+
+        this.databaseClient.sql(dataSql)
+                .fetch()
+                .rowsUpdated()
+                .block();
+    }
+
+    @Test
+    void shouldFindAllEmployees() {
+        this.employeeRepository.findAll()
+                .as(StepVerifier::create)
+                .expectNextCount(7)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldFindAnEmployee() {
+        this.employeeRepository.findById(6L)
+                .as(StepVerifier::create)
+                .consumeNextWith(employeeDB -> {
+                    assertThat(employeeDB.getFirstName()).isEqualTo("Lizbeth");
+                    assertThat(employeeDB.getLastName()).isEqualTo("Gonzales");
+                    assertThat(employeeDB.getPosition()).isEqualTo("Teacher");
+                    assertThat(employeeDB.isFullTime()).isTrue();
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldDoesNotReturnEmployeeWithIdThatDoesNotExist() {
+        this.employeeRepository.findById(100L)
+                .as(StepVerifier::create)
+                .expectNextCount(0)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldFindAllEmployeeByPosition() {
+        // given
+        String position = "Gerente";
+
+        // when
+        Flux<Employee> employeesByPosition = this.employeeRepository.findAllByPosition(position);
+
+        // then
+        StepVerifier.create(employeesByPosition)
+                .expectNextMatches(employee -> employee.getId().equals(1L))
+                .expectNextMatches(employee -> employee.getId().equals(4L))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldFindAllEmployeesByFullTime() {
+        Flux<Employee> employeesByFullTime = this.employeeRepository.findAllByFullTime(false);
+
+        StepVerifier.create(employeesByFullTime)
+                .assertNext(employee -> {
+                    assertThat(employee.getId()).isEqualTo(3L);
+                    assertThat(employee.getFirstName()).isEqualTo("Vanessa");
+                    assertThat(employee.getLastName()).isEqualTo("Bello");
+                    assertThat(employee.isFullTime()).isEqualTo(false);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldFindAllEmployeesByPositionAndFullTime() {
+        Flux<Employee> employeesByFullTime = this.employeeRepository.findAllByPositionAndFullTime("Teacher", true);
+
+        StepVerifier.create(employeesByFullTime)
+                .expectNextCount(2)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldFindAllEmployeesByFirstName() {
+        // given
+
+        // when
+        Flux<Employee> employeeFlux = this.employeeRepository.findByFirstName("Katherine");
+
+        // then
+        StepVerifier.create(employeeFlux)
+                .expectNextCount(1)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldSaveAnEmployee() {
+        // given
+        Employee employee = Employee.builder()
+                .firstName("Pepe")
+                .lastName("Menis")
+                .position("Animador")
+                .fullTime(true)
+                .build();
+
+        // when
+        Mono<Employee> employeeMono = this.employeeRepository.save(employee);
+
+        // then
+        StepVerifier.create(employeeMono)
+                .assertNext(employeeDB -> {
+                    assertThat(employeeDB.getId()).isNotNull();
+                    assertThat(employeeDB).isEqualTo(employee);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldDeleteAnEmployee() {
+        // given
+        this.employeeRepository.findById(6L)
+                .as(StepVerifier::create)
+                .expectNextCount(1)
+                .verifyComplete();
+
+        // when
+        this.employeeRepository.deleteById(6L).block();
+
+        // then
+        this.employeeRepository.findById(6L)
+                .as(StepVerifier::create)
+                .expectNextCount(0)
+                .verifyComplete();
+    }
+}
+````
+
+Notar que nuestra clase de prueba tiene anotaciones y configuraciones que explicaré a continuación:
+
+`@DataR2dbcTest`, como se mencionó al inicio de este apartado de test, esta anotación se usa para probar repositorios
+con `R2DBC` sin cargar todas las configuraciones. Por lo que esta anotación está diseñada para proporcionar una
+configuración de prueba `R2DBC`, pero no incluye automáticamente clases de configuración que no están en el contexto de
+prueba por defecto.
+
+Por lo tanto, si queremos que la clase de configuración `TestDatabaseConfig` se aplique al contexto de prueba, para que
+ejecute las configuraciones que tiene definido y cree las tablas y las rellene, entonces necesitamos agregar una
+anotación a nuestra clase de prueba indicándole que usará las configuraciones de la clase `TestDatabaseConfig`. La
+anotación a usar será `@ContextConfiguration`.
+
+La anotación `@ContextConfiguration(classes = {TestDatabaseConfig.class})` se utiliza en el contexto de pruebas de
+Spring para definir y configurar el contexto de la aplicación que se utilizará durante la ejecución de las pruebas.
+Carga los beans y configuraciones definidos en `TestDatabaseConfig`, lo que significa que cualquier bean que hayas
+definido allí estará disponible para ser usado en tus pruebas.
+
+En las pruebas también hacemos uso del `DatabaseClient`. Esta interfaz nos permitirá realizar llamadas a la base de
+datos. En nuestro caso, lo usamos para ejecutar la consulta definida en el `@BeforeEach`.
+
+Con respecto al método anotado con `@BeforeEach`, lo usamos para poder reiniciar los registros y tener las tablas en
+un mismo estado para todos los test que se ejecuten. Esto lo hacemos para que cada método test sea independiente y
+la ejecución de un método test no afecte a otros. Además, es importante recordar que hacemos esto, porque
+los test de `Data R2DBC no son transaccionales`, mientras que los tests de `@DataJpaTest` sí lo son, por eso es que
+tenemos que hacer algo de trabajo extra en este caso.
+
+`StepVerifier`, utilizamos `StepVerifier` como una ayuda de prueba para verificar nuestras expectativas con respecto a
+los resultados. `StepVerifier` es una herramienta que permite verificar el comportamiento de flujos reactivos (como
+`Flux` o `Mono`).
+
+Ahora, ejecutamos las pruebas y vemos que todas pasan correctamente.
+
+![02.png](assets/02.png)

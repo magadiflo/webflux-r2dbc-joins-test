@@ -1,0 +1,11 @@
+spring:
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5434/db_webflux_r2dbc_test
+    username: magadiflo
+    password: magadiflo
+
+logging:
+  level:
+    dev.magadiflo.app: DEBUG
+    io.r2dbc.postgresql.QUERY: DEBUG
+    io.r2dbc.postgresql.PARAM: DEBUG
