@@ -3,6 +3,7 @@ package dev.magadiflo.app.integration.repository.impl;
 import dev.magadiflo.app.model.entity.Department;
 import dev.magadiflo.app.model.entity.Employee;
 import dev.magadiflo.app.repository.impl.DepartmentRepositoryImpl;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,13 +29,18 @@ class DepartmentRepositoryImplTest {
     @Autowired
     private DatabaseClient databaseClient;
 
-    @BeforeEach
-    void setUp() throws IOException {
+    private static String DATA_SQL;
+
+    @BeforeAll
+    static void beforeAll() throws IOException {
         Path dataPath = Paths.get("src/test/resources/data.sql");
         byte[] readData = Files.readAllBytes(dataPath);
-        String dataSql = new String(readData);
+        DATA_SQL = new String(readData);
+    }
 
-        this.databaseClient.sql(dataSql)
+    @BeforeEach
+    void setUp() {
+        this.databaseClient.sql(DATA_SQL)
                 .fetch()
                 .rowsUpdated()
                 .block();

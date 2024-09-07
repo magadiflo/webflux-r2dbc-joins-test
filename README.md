@@ -1453,7 +1453,7 @@ $ curl -v -X PUT -H "Content-Type: application/json" -d "{\"name\": \"Legalizado
 
 ---
 
-## Test de Repositorios (DataR2dbcTest)
+## Test de Integración de Repositorios (DataR2dbcTest)
 
 Para la realización de los test a nuestros repositorios con `R2DBC` utilizamos la anotación `@DataR2dbcTest`, lo que en
 `Spring Data JPA` sería la anotación `@DataJpaTest`.
@@ -1646,13 +1646,18 @@ class EmployeeRepositoryTest {
     @Autowired
     private DatabaseClient databaseClient;
 
-    @BeforeEach
-    void setUp() throws IOException {
+    private static String DATA_SQL;
+
+    @BeforeAll
+    static void beforeAll() throws IOException {
         Path dataPath = Paths.get("src/test/resources/data.sql");
         byte[] readData = Files.readAllBytes(dataPath);
-        String dataSql = new String(readData);
+        DATA_SQL = new String(readData);
+    }
 
-        this.databaseClient.sql(dataSql)
+    @BeforeEach
+    void setUp() {
+        this.databaseClient.sql(DATA_SQL)
                 .fetch()
                 .rowsUpdated()
                 .block();
@@ -1797,6 +1802,10 @@ Spring para definir y configurar el contexto de la aplicación que se utilizará
 Carga los beans y configuraciones definidos en `TestDatabaseConfig`, lo que significa que cualquier bean que hayas
 definido allí estará disponible para ser usado en tus pruebas.
 
+La anotación `@DataR2dbcTest` es adecuada para realizar pruebas enfocadas en la capa de datos (repositorios). Esta
+anotación automáticamente configura una base de datos en memoria, pero en tu caso, la sobreescribes con tu propia
+configuración de base de datos proporcionada por `TestDatabaseConfig`.
+
 En las pruebas también hacemos uso del `DatabaseClient`. Esta interfaz nos permitirá realizar llamadas a la base de
 datos. En nuestro caso, lo usamos para ejecutar la consulta definida en el `@BeforeEach`.
 
@@ -1805,6 +1814,15 @@ un mismo estado para todos los test que se ejecuten. Esto lo hacemos para que ca
 la ejecución de un método test no afecte a otros. Además, es importante recordar que hacemos esto, porque
 los test de `Data R2DBC no son transaccionales`, mientras que los tests de `@DataJpaTest` sí lo son, por eso es que
 tenemos que hacer algo de trabajo extra en este caso.
+
+Es importante notar que también estamos haciendo uso de la anotación de JUnit `@BeforeAll` sobre un método. Este método
+nos permitirá ejecutar su contenido una sola vez antes de que se ejecuten todas las pruebas en la clase. Esto es útil
+para preparar el entorno de la base de datos antes de todas las pruebas, sin necesidad de repetir la misma configuración
+antes de cada prueba.
+
+Aunque `@BeforeAll` carga el archivo `data.sql` una vez, aún necesitas ejecutar el script SQL antes de cada prueba para
+restablecer el estado de la base de datos. Por lo tanto, en `@BeforeEach`, usamos el contenido cargado de `DATA_SQL`
+para inicializar la base de datos antes de cada prueba.
 
 `StepVerifier`, utilizamos `StepVerifier` como una ayuda de prueba para verificar nuestras expectativas con respecto a
 los resultados. `StepVerifier` es una herramienta que permite verificar el comportamiento de flujos reactivos (como
