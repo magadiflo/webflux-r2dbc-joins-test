@@ -1831,3 +1831,117 @@ los resultados. `StepVerifier` es una herramienta que permite verificar el compo
 Ahora, ejecutamos las pruebas y vemos que todas pasan correctamente.
 
 ![02.png](assets/02.png)
+
+## Clase de prueba para el repositorio DepartmentRepositoryImpl
+
+En esta clase de test `DepartmentRepositoryImplTest` es importante señalar que no se está haciendo uso de la anotación
+`@DataR2dbcTest`, dado que esta anotación es especializada para pruebas de repositorios `R2DBC`. Pero para nuestro caso,
+como vamos a probar la clase
+`DepartmentRepositoryImpl` necesitamos agregarlo al contexto de la aplicación para que en la clase
+`DepartmentRepositoryImplTest` se pueda inyectar y ejecutar sin problemas. Entonces, la anotación `@DataR2dbcTest`
+nos queda corto, ya que solo configura los componentes necesarios para probar repositorios que usan `R2DBC`. No carga
+los componentes y configuraciones que no son directamente necesarios para las pruebas de `R2DBC`.
+
+En ese sentido, estamos optando por usar la anotación `@SpringBootTest` que es propio para pruebas de integración y que
+nos ayuda a cargar todo el contexto de la aplicación de `Spring Boot`.
+
+A continuación se muestra parte de la implementación del test de integración para la clase `DepartmentRepositoryImpl`.
+
+````java
+
+@SpringBootTest
+class DepartmentRepositoryImplTest {
+
+    @Autowired
+    private DepartmentRepositoryImpl departmentRepository;
+
+    @Autowired
+    private DatabaseClient databaseClient;
+
+    private static String DATA_SQL;
+
+    @BeforeAll
+    static void beforeAll() throws IOException {
+        Path dataPath = Paths.get("src/test/resources/data.sql");
+        byte[] readData = Files.readAllBytes(dataPath);
+        DATA_SQL = new String(readData);
+    }
+
+    @BeforeEach
+    void setUp() {
+        this.databaseClient.sql(DATA_SQL)
+                .fetch()
+                .rowsUpdated()
+                .block();
+    }
+
+    @Test
+    void shouldReturnFluxOfDepartments_whenDataExists() {
+        this.departmentRepository.findAll()
+                .as(StepVerifier::create)
+                .expectNextCount(4)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReturnDepartment_whenValidIdIsProvided() {
+        // given
+        Long validDepartmentId = 1L;
+
+        // when
+        Mono<Department> result = this.departmentRepository.findById(validDepartmentId);
+
+        // then
+        StepVerifier.create(result)
+                .consumeNextWith(departmentDB -> {
+                    assertThat(departmentDB.getId()).isEqualTo(validDepartmentId);
+                    assertThat(departmentDB.getName()).isEqualTo("Tecnología");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldNotReturnDepartment_whenInvalidIdIsProvided() {
+        // given
+        Long invalidDepartmentId = 100L;
+
+        // when
+        Mono<Department> result = this.departmentRepository.findById(invalidDepartmentId);
+
+        // then
+        StepVerifier.create(result)
+                .expectNextCount(0)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReturnDepartmentWithManagerAndEmployees_whenValidIdIsProvided() {
+        /* code */
+    }
+
+    @Test
+    void shouldReturnDepartment_whenValidNameIsProvided() {
+        /* code */
+    }
+
+    @Test
+    void shouldSaveDepartmentWithManagerAndEmployees_whenValidDepartmentIsProvided() {
+        /* code */
+    }
+
+    @Test
+    void shouldUpdateDepartment_whenValidDepartmentIsProvided() {
+        /* code */
+    }
+
+    @Test
+    void shouldDeleteDepartmentWithManagerAndEmployees_whenValidDepartmentIsProvided() {
+        /* code */
+    }
+}
+````
+
+Si ejecutamos estos test, veremos que todos pasan correctamente.
+
+![03.png](assets/03.png)
+
