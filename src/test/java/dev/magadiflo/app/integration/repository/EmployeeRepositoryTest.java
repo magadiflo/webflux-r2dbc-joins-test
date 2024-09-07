@@ -1,7 +1,8 @@
-package dev.magadiflo.app.repository;
+package dev.magadiflo.app.integration.repository;
 
 import dev.magadiflo.app.config.TestDatabaseConfig;
 import dev.magadiflo.app.model.entity.Employee;
+import dev.magadiflo.app.repository.EmployeeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
