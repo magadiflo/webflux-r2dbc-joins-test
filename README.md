@@ -1945,3 +1945,130 @@ Si ejecutamos estos test, veremos que todos pasan correctamente.
 
 ![03.png](assets/03.png)
 
+---
+
+## Test Unitarios para DAO (DataR2dbcTest)
+
+---
+
+Como nuestra interfaz `DepartmentRepository` no extiende de ningún repositorio específico de `Spring Data` y además
+estamos definiendo métodos de acceso a datos personalizados, podríamos decir que esta interfaz se asemeja más a un
+`DAO` tradicional.
+
+Nuestro `DepartmentRepository` y `DepartmentRepositoryImpl` se asemejan más a un patrón `DAO` que a un repositorio
+tradicional de `Spring Data`. Estamos proporcionando una implementación específica para acceder a datos, en lugar de
+depender completamente de la implementación automática proporcionada por `Spring Data`.
+
+En ese sentido, a continuación se muestra la implementación de las pruebas unitarias realizadas a los métodos de
+nuestra implementación `DepartmentRepositoryImpl`.
+
+````java
+
+@ExtendWith(MockitoExtension.class)
+class DepartmentRepositoryImplTest {
+
+    @Mock
+    private DatabaseClient databaseClient;
+
+    @Mock
+    private DatabaseClient.GenericExecuteSpec genericExecuteSpec;
+
+    @Mock
+    private FetchSpec<Map<String, Object>> fetchSpec;
+
+    @Mock
+    private RowsFetchSpec<Department> rowsFetchSpec;
+
+    @Mock
+    private EmployeeRepository employeeRepository;
+
+    @InjectMocks
+    private DepartmentRepositoryImpl departmentRepository;
+
+    /* unit tests */
+}
+````
+
+En el código anterior podemos observar que estamos haciendo uso de las anotaciones de
+`Mockito` (`@Mock` e `@InjectMocks`), estas anotaciones están siendo habilitadas gracias a la anotación definida en
+el nivel de la clase de este test `@ExtendWith(MockitoExtension.class)`.
+
+Notar que estamos mockeando varias dependencias que usa nuestro repositorio bajo prueba, estas dependencias que
+mockeamos corresponden a las distintas respuestas que retornan los operadores usados en los métodos, por ejemplo
+el método `.sql()` retorna un `GenericExecuteSpec`, el método `.fetch()` retorna un `FetchSpec<Map<String, Object>>`,
+y así con los demás métodos; necesitamos simularlos para poder seguir el flujo dentro de nuestros métodos.
+
+A continuación mostramos los distintos test unitarios implementados para nuestra clase `DepartmentRepositoryImpl`.
+
+````java
+
+@ExtendWith(MockitoExtension.class)
+class DepartmentRepositoryImplTest {
+
+    /* dependencias mockeadas con @Mock y uso del @InjectMocks en la clase a probar */
+
+    @Test
+    void shouldReturnFluxOfDepartments_whenDataExists() {
+        // given
+        Map<String, Object> row1 = Map.of("d_id", 1L, "d_name", "Legal");
+        Map<String, Object> row2 = Map.of("d_id", 2L, "d_name", "Ventas");
+        Flux<Map<String, Object>> mockResult = Flux.just(row1, row2);
+        when(this.databaseClient.sql(anyString())).thenReturn(this.genericExecuteSpec);
+        when(this.genericExecuteSpec.fetch()).thenReturn(this.fetchSpec);
+        when(this.fetchSpec.all()).thenReturn(mockResult);
+
+        // when
+        Flux<Department> result = this.departmentRepository.findAll();
+
+        // then
+        StepVerifier.create(result)
+                .consumeNextWith(departmentDB -> {
+                    assertThat(departmentDB.getId()).isEqualTo(1L);
+                    assertThat(departmentDB.getName()).isEqualTo("Legal");
+                }).consumeNextWith(departmentDB -> {
+                    assertThat(departmentDB.getId()).isEqualTo(2L);
+                    assertThat(departmentDB.getName()).isEqualTo("Ventas");
+                })
+                .verifyComplete();
+        verify(this.databaseClient).sql(anyString());
+        verify(this.genericExecuteSpec).fetch();
+        verify(this.fetchSpec).all();
+    }
+
+    @Test
+    void shouldReturnDepartment_whenValidIdIsProvided() {
+        // given
+        Long validDepartmentId = 1L;
+        Department expectedDepartment = Department.builder()
+                .id(validDepartmentId)
+                .name("HR")
+                .build();
+
+        when(this.databaseClient.sql(anyString())).thenReturn(this.genericExecuteSpec);
+        when(this.genericExecuteSpec.bind(anyString(), any())).thenReturn(this.genericExecuteSpec);
+
+        // Aquí usamos el Mockito.any() proporcionándole el tipo genérico específico que necesitamos
+        when(this.genericExecuteSpec.map(Mockito.<BiFunction<Row, RowMetadata, Department>>any())).thenReturn(this.rowsFetchSpec);
+
+        when(this.rowsFetchSpec.first()).thenReturn(Mono.just(expectedDepartment));
+
+        // when
+        Mono<Department> result = this.departmentRepository.findById(validDepartmentId);
+
+        // then
+        StepVerifier.create(result)
+                .expectNext(expectedDepartment)
+                .verifyComplete();
+        verify(this.databaseClient).sql(anyString());
+
+        // Con los dos verify siguientes nos aseguramos de que únicamente haya un bind en el código y que ese bind debe
+        // tener como argumento el "departmentId". Si se agrega otro bind con otro argumento fallará la prueba
+        verify(this.genericExecuteSpec).bind(eq("departmentId"), eq(validDepartmentId));
+        verify(this.genericExecuteSpec).bind(anyString(), any());
+
+        verify(this.genericExecuteSpec).map(Mockito.<BiFunction<Row, RowMetadata, Department>>any());
+        verify(this.rowsFetchSpec).first();
+    }
+}
+````
+
