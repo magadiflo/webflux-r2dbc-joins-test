@@ -1839,7 +1839,7 @@ Ahora, ejecutamos las pruebas y vemos que todas pasan correctamente.
 
 ![02.png](assets/02.png)
 
-## Clase de prueba para el repositorio DepartmentDaoImpl
+## Clase de prueba para el dao DepartmentDaoImpl
 
 En esta clase de test `DepartmentDaoImplTest` es importante señalar que no se está haciendo uso de la anotación
 `@DataR2dbcTest`, dado que esta anotación es especializada para pruebas de repositorios `R2DBC`. Pero para nuestro caso,
@@ -2079,3 +2079,6 @@ class DepartmentDaoImplTest {
 }
 ````
 
+Como resultado de ejecutar los test unitarios anteriores vemos que todos pasan correctamente.
+
+![04.png](assets/04.png)
