@@ -2,7 +2,7 @@ package dev.magadiflo.app.unit.repository.impl;
 
 import dev.magadiflo.app.model.entity.Department;
 import dev.magadiflo.app.repository.EmployeeRepository;
-import dev.magadiflo.app.repository.impl.DepartmentRepositoryImpl;
+import dev.magadiflo.app.dao.impl.DepartmentDaoImpl;
 import io.r2dbc.spi.Row;
 import io.r2dbc.spi.RowMetadata;
 import org.junit.jupiter.api.Test;
@@ -26,7 +26,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class DepartmentRepositoryImplTest {
+class DepartmentDaoImplTest {
 
     @Mock
     private DatabaseClient databaseClient;
@@ -44,7 +44,7 @@ class DepartmentRepositoryImplTest {
     private EmployeeRepository employeeRepository;
 
     @InjectMocks
-    private DepartmentRepositoryImpl departmentRepository;
+    private DepartmentDaoImpl departmentDao;
 
     @Test
     void shouldReturnFluxOfDepartments_whenDataExists() {
@@ -57,7 +57,7 @@ class DepartmentRepositoryImplTest {
         when(this.fetchSpec.all()).thenReturn(mockResult);
 
         // when
-        Flux<Department> result = this.departmentRepository.findAll();
+        Flux<Department> result = this.departmentDao.findAll();
 
         // then
         StepVerifier.create(result)
@@ -89,7 +89,7 @@ class DepartmentRepositoryImplTest {
         when(this.rowsFetchSpec.first()).thenReturn(Mono.just(expectedDepartment));
 
         // when
-        Mono<Department> result = this.departmentRepository.findById(validDepartmentId);
+        Mono<Department> result = this.departmentDao.findById(validDepartmentId);
 
         // then
         StepVerifier.create(result)

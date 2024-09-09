@@ -1,10 +1,10 @@
-package dev.magadiflo.app.repository;
+package dev.magadiflo.app.dao;
 
 import dev.magadiflo.app.model.entity.Department;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-public interface DepartmentRepository {
+public interface DepartmentDao {
     Flux<Department> findAll();
 
     Mono<Department> findById(Long departmentId);

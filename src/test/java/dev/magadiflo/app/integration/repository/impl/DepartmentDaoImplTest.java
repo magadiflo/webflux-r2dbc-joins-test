@@ -2,7 +2,7 @@ package dev.magadiflo.app.integration.repository.impl;
 
 import dev.magadiflo.app.model.entity.Department;
 import dev.magadiflo.app.model.entity.Employee;
-import dev.magadiflo.app.repository.impl.DepartmentRepositoryImpl;
+import dev.magadiflo.app.dao.impl.DepartmentDaoImpl;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,10 +21,10 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-class DepartmentRepositoryImplTest {
+class DepartmentDaoImplTest {
 
     @Autowired
-    private DepartmentRepositoryImpl departmentRepository;
+    private DepartmentDaoImpl departmentDao;
 
     @Autowired
     private DatabaseClient databaseClient;
@@ -48,7 +48,7 @@ class DepartmentRepositoryImplTest {
 
     @Test
     void shouldReturnFluxOfDepartments_whenDataExists() {
-        this.departmentRepository.findAll()
+        this.departmentDao.findAll()
                 .as(StepVerifier::create)
                 .expectNextCount(4)
                 .verifyComplete();
@@ -60,7 +60,7 @@ class DepartmentRepositoryImplTest {
         Long validDepartmentId = 1L;
 
         // when
-        Mono<Department> result = this.departmentRepository.findById(validDepartmentId);
+        Mono<Department> result = this.departmentDao.findById(validDepartmentId);
 
         // then
         StepVerifier.create(result)
@@ -77,7 +77,7 @@ class DepartmentRepositoryImplTest {
         Long invalidDepartmentId = 100L;
 
         // when
-        Mono<Department> result = this.departmentRepository.findById(invalidDepartmentId);
+        Mono<Department> result = this.departmentDao.findById(invalidDepartmentId);
 
         // then
         StepVerifier.create(result)
@@ -91,7 +91,7 @@ class DepartmentRepositoryImplTest {
         Long validDepartmentId = 1L;
 
         // when
-        Mono<Department> result = this.departmentRepository.findDepartmentWithManagerAndEmployees(validDepartmentId);
+        Mono<Department> result = this.departmentDao.findDepartmentWithManagerAndEmployees(validDepartmentId);
 
         // then
         StepVerifier.create(result)
@@ -115,7 +115,7 @@ class DepartmentRepositoryImplTest {
         String validDepartmentName = "Ventas";
 
         // when
-        Mono<Department> result = this.departmentRepository.findByName(validDepartmentName);
+        Mono<Department> result = this.departmentDao.findByName(validDepartmentName);
 
         // then
         StepVerifier.create(result)
@@ -143,7 +143,7 @@ class DepartmentRepositoryImplTest {
                 .build();
 
         // when
-        Mono<Department> result = this.departmentRepository.save(department);
+        Mono<Department> result = this.departmentDao.save(department);
 
         // then
         StepVerifier.create(result)
@@ -169,7 +169,7 @@ class DepartmentRepositoryImplTest {
                 .employees(List.of(employee1, employee2))
                 .build();
 
-        this.departmentRepository.findDepartmentWithManagerAndEmployees(1L)
+        this.departmentDao.findDepartmentWithManagerAndEmployees(1L)
                 .as(StepVerifier::create)
                 .consumeNextWith(departmentDB -> {
                     assertThat(departmentDB.getId()).isEqualTo(1L);
@@ -180,7 +180,7 @@ class DepartmentRepositoryImplTest {
                 .verifyComplete();
 
         // when
-        Mono<Department> result = this.departmentRepository.save(department);
+        Mono<Department> result = this.departmentDao.save(department);
 
         // then
         StepVerifier.create(result)
@@ -190,7 +190,7 @@ class DepartmentRepositoryImplTest {
                 })
                 .verifyComplete();
 
-        this.departmentRepository.findDepartmentWithManagerAndEmployees(1L)
+        this.departmentDao.findDepartmentWithManagerAndEmployees(1L)
                 .as(StepVerifier::create)
                 .consumeNextWith(departmentDB -> {
                     assertThat(departmentDB.getId()).isEqualTo(1L);
@@ -215,7 +215,7 @@ class DepartmentRepositoryImplTest {
                 .employees(List.of(employee1, employee2))
                 .build();
 
-        this.departmentRepository.findDepartmentWithManagerAndEmployees(1L)
+        this.departmentDao.findDepartmentWithManagerAndEmployees(1L)
                 .as(StepVerifier::create)
                 .consumeNextWith(departmentDB -> {
                     assertThat(departmentDB.getId()).isEqualTo(1L);
@@ -226,14 +226,14 @@ class DepartmentRepositoryImplTest {
                 .verifyComplete();
 
         // when
-        Mono<Void> response = this.departmentRepository.delete(department);
+        Mono<Void> response = this.departmentDao.delete(department);
 
         // then
         StepVerifier.create(response)
                 .expectNextCount(0)
                 .verifyComplete();
 
-        this.departmentRepository.findById(1L)
+        this.departmentDao.findById(1L)
                 .as(StepVerifier::create)
                 .expectNextCount(0)
                 .verifyComplete();

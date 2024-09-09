@@ -1,8 +1,8 @@
-package dev.magadiflo.app.repository.impl;
+package dev.magadiflo.app.dao.impl;
 
 import dev.magadiflo.app.model.entity.Department;
 import dev.magadiflo.app.model.entity.Employee;
-import dev.magadiflo.app.repository.DepartmentRepository;
+import dev.magadiflo.app.dao.DepartmentDao;
 import dev.magadiflo.app.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,7 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 @Repository
-public class DepartmentRepositoryImpl implements DepartmentRepository {
+public class DepartmentDaoImpl implements DepartmentDao {
 
     private final EmployeeRepository employeeRepository;
     private final DatabaseClient client;

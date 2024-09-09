@@ -363,7 +363,7 @@ resultados sin procesar de una llamada con DatabaseClient. Dado que `Spring Data
 que escribir la lógica nosotros mismos. `row.get` es nuestro mejor amigo aquí, ya que nos permite extraer cualquier
 columna y convertirla al tipo que necesitamos.
 
-## Repositorios
+## Repositorio
 
 Antes dije que los repositorios estándar son adecuados para entidades sin relaciones. Lo que significa que todo lo que
 tenemos que hacer para `Employee` es crear nuestra interfaz que extienda de `R2dbcRepository`. Además, estamos creando
@@ -381,16 +381,23 @@ public interface EmployeeRepository extends R2dbcRepository<Employee, Long> {
 }
 ````
 
+## DAO
+
 Ahora, si revisamos la entidad `Department`, esta entidad está relacionada con `Employee` a través de los atributos
 `manager` y `employees`, por lo que crear una interfaz y extenderla de `R2dbcRepository` no es lo adecuado para traer
 los datos relacionados.
 
 Lo que haremos en este caso, será crear una interfaz y luego crearemos su propia implementación. Para mantener el mismo
-patrón para el `Department`, necesitamos una interfaz y una clase de implementación, `DepartmentRepository` y
-`DepartmentRepositoryImpl`.
+patrón para el `Department`, necesitamos una interfaz y una clase de implementación, `DepartmentDao` y
+`DepartmentDaoImpl`.
+
+Entonces, nuestro `DepartmentDao` y `DepartmentDaoImpl` se asemejan más a un patrón `DAO` que a un repositorio
+tradicional de `Spring Data`, es por eso que nombro a la interfaz y a su implementación con `dao` y no `repository`.
+Estás proporcionando una implementación específica para acceder a datos, en lugar de depender completamente de la
+implementación automática proporcionada por `Spring Data`.
 
 ````java
-public interface DepartmentRepository {
+public interface DepartmentDao {
     Flux<Department> findAll();
 
     Mono<Department> findById(Long departmentId);
@@ -414,7 +421,7 @@ con el nombre del campo.**
 @Slf4j
 @RequiredArgsConstructor
 @Repository
-public class DepartmentRepositoryImpl implements DepartmentRepository {
+public class DepartmentDaoImpl implements DepartmentDao {
 
     private final EmployeeRepository employeeRepository;
     private final DatabaseClient client;
@@ -686,27 +693,27 @@ Ahora sí, realizamos una petición al endpoint para poder listar los departamen
 obtenemos en la consola del ide.
 
 ````bash
- INFO DepartmentRepositoryImpl    : {d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=5, e_firstname=José, e_lastname=Pérez, e_position=Soporte, e_isfulltime=true}
- INFO DepartmentRepositoryImpl    : {d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=7, e_firstname=Jorge, e_lastname=López, e_position=Analista, e_isfulltime=false}
- INFO DepartmentRepositoryImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=2, e_firstname=Ana, e_lastname=Martínez, e_position=Desarrollador, e_isfulltime=true}
-DEBUG DepartmentRepositoryImpl    : [{d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=5, e_firstname=José, e_lastname=Pérez, e_position=Soporte, e_isfulltime=true}, {d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=7, e_firstname=Jorge, e_lastname=López, e_position=Analista, e_isfulltime=false}]
- INFO DepartmentRepositoryImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=6, e_firstname=Laura, e_lastname=Sánchez, e_position=Desarrollador, e_isfulltime=true}
- INFO DepartmentRepositoryImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=11, e_firstname=Miguel, e_lastname=Hernández, e_position=Desarrollador, e_isfulltime=true}
- INFO DepartmentRepositoryImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=13, e_firstname=Pablo, e_lastname=Jiménez, e_position=Desarrollador, e_isfulltime=true}
- INFO DepartmentRepositoryImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=20, e_firstname=Isabel, e_lastname=Ramos, e_position=Desarrollador, e_isfulltime=true}
- INFO DepartmentRepositoryImpl    : {d_id=3, d_name=Finanzas, m_id=15, m_firstname=Raúl, m_lastname=Domínguez, m_position=Gerente, m_isfulltime=true, e_id=10, e_firstname=Lucía, e_lastname=Morales, e_position=Diseñador, e_isfulltime=true}
-DEBUG DepartmentRepositoryImpl    : [{d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=2, e_firstname=Ana, e_lastname=Martínez, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=6, e_firstname=Laura, e_lastname=Sánchez, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=11, e_firstname=Miguel, e_lastname=Hernández, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=13, e_firstname=Pablo, e_lastname=Jiménez, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=20, e_firstname=Isabel, e_lastname=Ramos, e_position=Desarrollador, e_isfulltime=true}]
- INFO DepartmentRepositoryImpl    : {d_id=4, d_name=Marketing, m_id=4, m_firstname=María, m_lastname=Rodríguez, m_position=Analista, m_isfulltime=true, e_id=18, e_firstname=Marta, e_lastname=Ortega, e_position=Diseñador, e_isfulltime=false}
-DEBUG DepartmentRepositoryImpl    : [{d_id=3, d_name=Finanzas, m_id=15, m_firstname=Raúl, m_lastname=Domínguez, m_position=Gerente, m_isfulltime=true, e_id=10, e_firstname=Lucía, e_lastname=Morales, e_position=Diseñador, e_isfulltime=true}]
- INFO DepartmentRepositoryImpl    : {d_id=4, d_name=Marketing, m_id=4, m_firstname=María, m_lastname=Rodríguez, m_position=Analista, m_isfulltime=true, e_id=12, e_firstname=Elena, e_lastname=Ruiz, e_position=Analista, e_isfulltime=false}
- INFO DepartmentRepositoryImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=3, e_firstname=Luis, e_lastname=Fernández, e_position=Diseñador, e_isfulltime=false}
-DEBUG DepartmentRepositoryImpl    : [{d_id=4, d_name=Marketing, m_id=4, m_firstname=María, m_lastname=Rodríguez, m_position=Analista, m_isfulltime=true, e_id=18, e_firstname=Marta, e_lastname=Ortega, e_position=Diseñador, e_isfulltime=false}, {d_id=4, d_name=Marketing, m_id=4, m_firstname=María, m_lastname=Rodríguez, m_position=Analista, m_isfulltime=true, e_id=12, e_firstname=Elena, e_lastname=Ruiz, e_position=Analista, e_isfulltime=false}]
- INFO DepartmentRepositoryImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=9, e_firstname=Manuel, e_lastname=Torres, e_position=Soporte, e_isfulltime=true}
- INFO DepartmentRepositoryImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=14, e_firstname=Carmen, e_lastname=Navarro, e_position=Soporte, e_isfulltime=true}
- INFO DepartmentRepositoryImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=16, e_firstname=Beatriz, e_lastname=Vargas, e_position=Desarrollador, e_isfulltime=true}
- INFO DepartmentRepositoryImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=17, e_firstname=Francisco, e_lastname=Muñoz, e_position=Soporte, e_isfulltime=true}
- INFO DepartmentRepositoryImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=19, e_firstname=Andrés, e_lastname=Castillo, e_position=Analista, e_isfulltime=true}
-DEBUG DepartmentRepositoryImpl    : [{d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=3, e_firstname=Luis, e_lastname=Fernández, e_position=Diseñador, e_isfulltime=false}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=9, e_firstname=Manuel, e_lastname=Torres, e_position=Soporte, e_isfulltime=true}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=14, e_firstname=Carmen, e_lastname=Navarro, e_position=Soporte, e_isfulltime=true}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=16, e_firstname=Beatriz, e_lastname=Vargas, e_position=Desarrollador, e_isfulltime=true}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=17, e_firstname=Francisco, e_lastname=Muñoz, e_position=Soporte, e_isfulltime=true}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=19, e_firstname=Andrés, e_lastname=Castillo, e_position=Analista, e_isfulltime=true}]
+ INFO DepartmentDaoImpl    : {d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=5, e_firstname=José, e_lastname=Pérez, e_position=Soporte, e_isfulltime=true}
+ INFO DepartmentDaoImpl    : {d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=7, e_firstname=Jorge, e_lastname=López, e_position=Analista, e_isfulltime=false}
+ INFO DepartmentDaoImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=2, e_firstname=Ana, e_lastname=Martínez, e_position=Desarrollador, e_isfulltime=true}
+DEBUG DepartmentDaoImpl    : [{d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=5, e_firstname=José, e_lastname=Pérez, e_position=Soporte, e_isfulltime=true}, {d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=7, e_firstname=Jorge, e_lastname=López, e_position=Analista, e_isfulltime=false}]
+ INFO DepartmentDaoImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=6, e_firstname=Laura, e_lastname=Sánchez, e_position=Desarrollador, e_isfulltime=true}
+ INFO DepartmentDaoImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=11, e_firstname=Miguel, e_lastname=Hernández, e_position=Desarrollador, e_isfulltime=true}
+ INFO DepartmentDaoImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=13, e_firstname=Pablo, e_lastname=Jiménez, e_position=Desarrollador, e_isfulltime=true}
+ INFO DepartmentDaoImpl    : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=20, e_firstname=Isabel, e_lastname=Ramos, e_position=Desarrollador, e_isfulltime=true}
+ INFO DepartmentDaoImpl    : {d_id=3, d_name=Finanzas, m_id=15, m_firstname=Raúl, m_lastname=Domínguez, m_position=Gerente, m_isfulltime=true, e_id=10, e_firstname=Lucía, e_lastname=Morales, e_position=Diseñador, e_isfulltime=true}
+DEBUG DepartmentDaoImpl    : [{d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=2, e_firstname=Ana, e_lastname=Martínez, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=6, e_firstname=Laura, e_lastname=Sánchez, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=11, e_firstname=Miguel, e_lastname=Hernández, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=13, e_firstname=Pablo, e_lastname=Jiménez, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=20, e_firstname=Isabel, e_lastname=Ramos, e_position=Desarrollador, e_isfulltime=true}]
+ INFO DepartmentDaoImpl    : {d_id=4, d_name=Marketing, m_id=4, m_firstname=María, m_lastname=Rodríguez, m_position=Analista, m_isfulltime=true, e_id=18, e_firstname=Marta, e_lastname=Ortega, e_position=Diseñador, e_isfulltime=false}
+DEBUG DepartmentDaoImpl    : [{d_id=3, d_name=Finanzas, m_id=15, m_firstname=Raúl, m_lastname=Domínguez, m_position=Gerente, m_isfulltime=true, e_id=10, e_firstname=Lucía, e_lastname=Morales, e_position=Diseñador, e_isfulltime=true}]
+ INFO DepartmentDaoImpl    : {d_id=4, d_name=Marketing, m_id=4, m_firstname=María, m_lastname=Rodríguez, m_position=Analista, m_isfulltime=true, e_id=12, e_firstname=Elena, e_lastname=Ruiz, e_position=Analista, e_isfulltime=false}
+ INFO DepartmentDaoImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=3, e_firstname=Luis, e_lastname=Fernández, e_position=Diseñador, e_isfulltime=false}
+DEBUG DepartmentDaoImpl    : [{d_id=4, d_name=Marketing, m_id=4, m_firstname=María, m_lastname=Rodríguez, m_position=Analista, m_isfulltime=true, e_id=18, e_firstname=Marta, e_lastname=Ortega, e_position=Diseñador, e_isfulltime=false}, {d_id=4, d_name=Marketing, m_id=4, m_firstname=María, m_lastname=Rodríguez, m_position=Analista, m_isfulltime=true, e_id=12, e_firstname=Elena, e_lastname=Ruiz, e_position=Analista, e_isfulltime=false}]
+ INFO DepartmentDaoImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=9, e_firstname=Manuel, e_lastname=Torres, e_position=Soporte, e_isfulltime=true}
+ INFO DepartmentDaoImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=14, e_firstname=Carmen, e_lastname=Navarro, e_position=Soporte, e_isfulltime=true}
+ INFO DepartmentDaoImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=16, e_firstname=Beatriz, e_lastname=Vargas, e_position=Desarrollador, e_isfulltime=true}
+ INFO DepartmentDaoImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=17, e_firstname=Francisco, e_lastname=Muñoz, e_position=Soporte, e_isfulltime=true}
+ INFO DepartmentDaoImpl    : {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=19, e_firstname=Andrés, e_lastname=Castillo, e_position=Analista, e_isfulltime=true}
+DEBUG DepartmentDaoImpl    : [{d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=3, e_firstname=Luis, e_lastname=Fernández, e_position=Diseñador, e_isfulltime=false}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=9, e_firstname=Manuel, e_lastname=Torres, e_position=Soporte, e_isfulltime=true}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=14, e_firstname=Carmen, e_lastname=Navarro, e_position=Soporte, e_isfulltime=true}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=16, e_firstname=Beatriz, e_lastname=Vargas, e_position=Desarrollador, e_isfulltime=true}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=17, e_firstname=Francisco, e_lastname=Muñoz, e_position=Soporte, e_isfulltime=true}, {d_id=5, d_name=Ventas, m_id=20, m_firstname=Isabel, m_lastname=Ramos, m_position=Desarrollador, m_isfulltime=true, e_id=19, e_firstname=Andrés, e_lastname=Castillo, e_position=Analista, e_isfulltime=true}]
 ````
 
 Como se observa, el operador `all()` va emitiendo uno a uno los resultados de la consulta, eso lo podemos ver en el
@@ -1143,16 +1150,16 @@ public class EmployeeServiceImpl implements EmployeeService {
 @Transactional(readOnly = true)
 public class DepartmentServiceImpl implements DepartmentService {
 
-    private final DepartmentRepository departmentRepository;
+    private final DepartmentDao departmentDao;
 
     @Override
     public Flux<Department> getAllDepartments() {
-        return this.departmentRepository.findAll();
+        return this.departmentDao.findAll();
     }
 
     @Override
     public Mono<DepartmentResponse> showDepartment(Long departmentId) {
-        return this.departmentRepository.findById(departmentId)
+        return this.departmentDao.findById(departmentId)
                 .map(departmentDB -> DepartmentResponse.builder()
                         .id(departmentDB.getId())
                         .name(departmentDB.getName())
@@ -1162,14 +1169,14 @@ public class DepartmentServiceImpl implements DepartmentService {
 
     @Override
     public Mono<Department> showDepartmentWithManagerAndEmployees(Long departmentId) {
-        return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
+        return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)));
     }
 
     @Override
     public Flux<Employee> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime) {
         if (isFullTime != null) {
-            return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
+            return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
                     .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
                     .flatMapMany(departmentDB -> {
                         Stream<Employee> employeeStream = departmentDB.getEmployees().stream()
@@ -1178,7 +1185,7 @@ public class DepartmentServiceImpl implements DepartmentService {
                     });
         }
 
-        return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
+        return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
                 .flatMapMany(department -> Flux.fromIterable(department.getEmployees()));
     }
@@ -1186,17 +1193,17 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     @Transactional
     public Mono<Department> createDepartment(CreateDepartmentRequest departmentRequest) {
-        return this.departmentRepository.findByName(departmentRequest.name())
+        return this.departmentDao.findByName(departmentRequest.name())
                 .flatMap(departmentDB -> Mono.error(new DepartmentAlreadyExistsException(departmentRequest.name())))
                 .defaultIfEmpty(Department.builder().name(departmentRequest.name()).build())
                 .cast(Department.class)
-                .flatMap(this.departmentRepository::save);
+                .flatMap(this.departmentDao::save);
     }
 
     @Override
     @Transactional
     public Mono<Department> updateDepartment(Long departmentId, Department department) {
-        return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
+        return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
                 .map(departmentDB -> {
                     departmentDB.setName(department.getName());
@@ -1206,15 +1213,15 @@ public class DepartmentServiceImpl implements DepartmentService {
                     departmentDB.setEmployees(department.getEmployees());
                     return departmentDB;
                 })
-                .flatMap(this.departmentRepository::save);
+                .flatMap(this.departmentDao::save);
     }
 
     @Override
     @Transactional
     public Mono<Void> deleteDepartment(Long departmentId) {
-        return this.departmentRepository.findDepartmentWithManagerAndEmployees(departmentId)
+        return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(new DepartmentNotFoundException(departmentId)))
-                .flatMap(this.departmentRepository::delete);
+                .flatMap(this.departmentDao::delete);
     }
 }
 ````
@@ -1832,28 +1839,28 @@ Ahora, ejecutamos las pruebas y vemos que todas pasan correctamente.
 
 ![02.png](assets/02.png)
 
-## Clase de prueba para el repositorio DepartmentRepositoryImpl
+## Clase de prueba para el repositorio DepartmentDaoImpl
 
-En esta clase de test `DepartmentRepositoryImplTest` es importante señalar que no se está haciendo uso de la anotación
+En esta clase de test `DepartmentDaoImplTest` es importante señalar que no se está haciendo uso de la anotación
 `@DataR2dbcTest`, dado que esta anotación es especializada para pruebas de repositorios `R2DBC`. Pero para nuestro caso,
 como vamos a probar la clase
-`DepartmentRepositoryImpl` necesitamos agregarlo al contexto de la aplicación para que en la clase
-`DepartmentRepositoryImplTest` se pueda inyectar y ejecutar sin problemas. Entonces, la anotación `@DataR2dbcTest`
+`DepartmentDaoImpl` necesitamos agregarlo al contexto de la aplicación para que en la clase
+`DepartmentDaoImplTest` se pueda inyectar y ejecutar sin problemas. Entonces, la anotación `@DataR2dbcTest`
 nos queda corto, ya que solo configura los componentes necesarios para probar repositorios que usan `R2DBC`. No carga
 los componentes y configuraciones que no son directamente necesarios para las pruebas de `R2DBC`.
 
 En ese sentido, estamos optando por usar la anotación `@SpringBootTest` que es propio para pruebas de integración y que
 nos ayuda a cargar todo el contexto de la aplicación de `Spring Boot`.
 
-A continuación se muestra parte de la implementación del test de integración para la clase `DepartmentRepositoryImpl`.
+A continuación se muestra parte de la implementación del test de integración para la clase `DepartmentDaoImpl`.
 
 ````java
 
 @SpringBootTest
-class DepartmentRepositoryImplTest {
+class DepartmentDaoImplTest {
 
     @Autowired
-    private DepartmentRepositoryImpl departmentRepository;
+    private DepartmentDaoImpl departmentDao;
 
     @Autowired
     private DatabaseClient databaseClient;
@@ -1877,7 +1884,7 @@ class DepartmentRepositoryImplTest {
 
     @Test
     void shouldReturnFluxOfDepartments_whenDataExists() {
-        this.departmentRepository.findAll()
+        this.departmentDao.findAll()
                 .as(StepVerifier::create)
                 .expectNextCount(4)
                 .verifyComplete();
@@ -1889,7 +1896,7 @@ class DepartmentRepositoryImplTest {
         Long validDepartmentId = 1L;
 
         // when
-        Mono<Department> result = this.departmentRepository.findById(validDepartmentId);
+        Mono<Department> result = this.departmentDao.findById(validDepartmentId);
 
         // then
         StepVerifier.create(result)
@@ -1906,7 +1913,7 @@ class DepartmentRepositoryImplTest {
         Long invalidDepartmentId = 100L;
 
         // when
-        Mono<Department> result = this.departmentRepository.findById(invalidDepartmentId);
+        Mono<Department> result = this.departmentDao.findById(invalidDepartmentId);
 
         // then
         StepVerifier.create(result)
@@ -1951,21 +1958,21 @@ Si ejecutamos estos test, veremos que todos pasan correctamente.
 
 ---
 
-Como nuestra interfaz `DepartmentRepository` no extiende de ningún repositorio específico de `Spring Data` y además
+Como nuestra interfaz `DepartmentDao` no extiende de ningún repositorio específico de `Spring Data` y además
 estamos definiendo métodos de acceso a datos personalizados, podríamos decir que esta interfaz se asemeja más a un
 `DAO` tradicional.
 
-Nuestro `DepartmentRepository` y `DepartmentRepositoryImpl` se asemejan más a un patrón `DAO` que a un repositorio
+Nuestro `DepartmentDao` y `DepartmentDaoImpl` se asemejan más a un patrón `DAO` que a un repositorio
 tradicional de `Spring Data`. Estamos proporcionando una implementación específica para acceder a datos, en lugar de
 depender completamente de la implementación automática proporcionada por `Spring Data`.
 
 En ese sentido, a continuación se muestra la implementación de las pruebas unitarias realizadas a los métodos de
-nuestra implementación `DepartmentRepositoryImpl`.
+nuestra implementación `DepartmentDaoImpl`.
 
 ````java
 
 @ExtendWith(MockitoExtension.class)
-class DepartmentRepositoryImplTest {
+class DepartmentDaoImplTest {
 
     @Mock
     private DatabaseClient databaseClient;
@@ -1983,7 +1990,7 @@ class DepartmentRepositoryImplTest {
     private EmployeeRepository employeeRepository;
 
     @InjectMocks
-    private DepartmentRepositoryImpl departmentRepository;
+    private DepartmentDaoImpl departmentDao;
 
     /* unit tests */
 }
@@ -1998,12 +2005,12 @@ mockeamos corresponden a las distintas respuestas que retornan los operadores us
 el método `.sql()` retorna un `GenericExecuteSpec`, el método `.fetch()` retorna un `FetchSpec<Map<String, Object>>`,
 y así con los demás métodos; necesitamos simularlos para poder seguir el flujo dentro de nuestros métodos.
 
-A continuación mostramos los distintos test unitarios implementados para nuestra clase `DepartmentRepositoryImpl`.
+A continuación mostramos los distintos test unitarios implementados para nuestra clase `DepartmentDaoImpl`.
 
 ````java
 
 @ExtendWith(MockitoExtension.class)
-class DepartmentRepositoryImplTest {
+class DepartmentDaoImplTest {
 
     /* dependencias mockeadas con @Mock y uso del @InjectMocks en la clase a probar */
 
@@ -2018,7 +2025,7 @@ class DepartmentRepositoryImplTest {
         when(this.fetchSpec.all()).thenReturn(mockResult);
 
         // when
-        Flux<Department> result = this.departmentRepository.findAll();
+        Flux<Department> result = this.departmentDao.findAll();
 
         // then
         StepVerifier.create(result)
@@ -2053,7 +2060,7 @@ class DepartmentRepositoryImplTest {
         when(this.rowsFetchSpec.first()).thenReturn(Mono.just(expectedDepartment));
 
         // when
-        Mono<Department> result = this.departmentRepository.findById(validDepartmentId);
+        Mono<Department> result = this.departmentDao.findById(validDepartmentId);
 
         // then
         StepVerifier.create(result)
