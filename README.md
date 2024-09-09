@@ -1636,7 +1636,7 @@ inicializar la base de datos de prueba. Aquí hay una descripción de los compon
     - Los archivos `schema.sql` y `data.sql` deben estar en el classpath del proyecto, y se ejecutarán al
       iniciar el contexto de prueba.
 
-## Clase de prueba para el repositorio EmployeeRepository
+## Test de Integración al repositorio EmployeeRepository
 
 A continuación mostraré la prueba de integración realizada al repositorio `EmployeeRepository`. Recordar que en estas
 pruebas estarémos trabajando con una nueva base de datos de `postgres`, misma que definimos en el archivo `compose.yml`.
@@ -1839,7 +1839,7 @@ Ahora, ejecutamos las pruebas y vemos que todas pasan correctamente.
 
 ![02.png](assets/02.png)
 
-## Clase de prueba para el dao DepartmentDaoImpl
+## Test de Integración al DAO DepartmentDaoImpl
 
 En esta clase de test `DepartmentDaoImplTest` es importante señalar que no se está haciendo uso de la anotación
 `@DataR2dbcTest`, dado que esta anotación es especializada para pruebas de repositorios `R2DBC`. Pero para nuestro caso,
@@ -1952,11 +1952,7 @@ Si ejecutamos estos test, veremos que todos pasan correctamente.
 
 ![03.png](assets/03.png)
 
----
-
-## Test Unitarios para DAO (DataR2dbcTest)
-
----
+## Test Unitarios al DAO DepartmentDaoImpl
 
 Como nuestra interfaz `DepartmentDao` no extiende de ningún repositorio específico de `Spring Data` y además
 estamos definiendo métodos de acceso a datos personalizados, podríamos decir que esta interfaz se asemeja más a un
@@ -2083,7 +2079,7 @@ Como resultado de ejecutar los test unitarios anteriores vemos que todos pasan c
 
 ![04.png](assets/04.png)
 
-## Pruebas Unitarias para el servicio EmployeeServiceImpl
+## Test Unitarios al servicio EmployeeServiceImpl
 
 A continuación se muestran las pruebas unitarias utilizando `JUnit 5` y las anotaciones de `Mockito` realizadas al
 servicio `EmployeeServiceImpl`.
@@ -2350,3 +2346,214 @@ class EmployeeServiceImplTest {
 A continuación, ejecutamos las pruebas y vemos que todas pasan correctamente.
 
 ![05.png](assets/05.png)
+
+## Test Unitarios al controlador EmployeeController
+
+Antes de mostrar los tests unitarios del controlador `EmployeeController` vamos a definir ciertos términos que usamos
+en las pruebas unitarias con reactor y webflux para el controlador.
+
+La anotación `@WebFluxTest(EmployeeController.class)`, se utiliza para probar componentes específicos de una aplicación
+`Spring WebFlux`, como controladores `(@RestController)`, y para configurar un contexto de prueba que solo incluye los
+componentes necesarios para la capa web reactiva.
+
+El uso de esta anotación solo permite la configuración automática que es relevante para las pruebas de WebFlux. De
+manera similar, el escaneo de componentes se limita a los beans anotados con `@Controller`, `@ControllerAdvice`,
+`@JsonComponent`; así como a los beans que implementan `Converter`, `GenericConverter`, `IDialect`, si `Thymeleaf`
+está disponible; `Module`, si Jackson está disponible; `WebExceptionHandler`, `WebFluxConfigurer`, `WebFilter`.
+
+De manera predeterminada, las pruebas anotadas con `@WebFluxTest` también configurarán automáticamente un
+`WebTestClient`. Para un control más detallado de `WebTestClient`, se puede utilizar la anotación
+`@AutoConfigureWebTestClient`.
+
+Normalmente, `@WebFluxTest` se utiliza en combinación con `@MockBean` o `@Import` para crear cualquier colaborador
+requerido por los beans `@Controller`, es decir, simular los servicios y otros beans que el controlador necesita, sin
+iniciar un servidor real.
+
+Si desea cargar la configuración completa de su aplicación y usar `WebTestClient`, debería considerar la combinación de
+`@SpringBootTest` con `@AutoConfigureWebTestClient` en lugar de esta anotación. Al usar `JUnit 4`, esta anotación se
+debe usar en combinación con `@RunWith(SpringRunner.class)`.
+
+La anotación `@MockBean` se utiliza para crear un mock de `EmployeeService`. Esto significa que no se está usando una
+implementación real del servicio, sino una simulada.
+
+Con `Mockito`, especificamos qué debe devolver el `mock` cuando se llama a ciertos métodos, como por ejemplo:
+`when(this.employeeService.showEmployee(1L)).thenReturn(Mono.just(employee));`.
+
+````java
+
+@Slf4j
+@WebFluxTest(EmployeeController.class)
+class EmployeeControllerTest {
+
+    @Autowired
+    private WebTestClient webTestClient;
+
+    @MockBean
+    private EmployeeService employeeService;
+
+    @Test
+    void shouldFindAllEmployees_whenDataExits() {
+        // given
+        Employee e1 = new Employee(1L, "Martín", "Díaz", "Desarrollador", true);
+        Employee e2 = new Employee(2L, "Betania", "Velez", "Abogada", false);
+        when(this.employeeService.getAllEmployees(isNull(), isNull())).thenReturn(Flux.just(e1, e2));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri("/api/v1/employees")
+                .exchange();
+
+        // then
+        response.expectStatus().isOk()
+                .expectBodyList(Employee.class)
+                .hasSize(2)
+                .consumeWith(listEntityExchangeResult -> {
+                    List<Employee> responseBody = listEntityExchangeResult.getResponseBody();
+                    assertThat(responseBody).isNotEmpty();
+                    assertThat(responseBody.get(0).getId()).isEqualTo(e1.getId());
+                    assertThat(responseBody.get(1).getId()).isEqualTo(e2.getId());
+                });
+        verify(this.employeeService).getAllEmployees(isNull(), isNull());
+    }
+
+    @Test
+    void shouldReturnEmployee_whenValidIdIsProvided() {
+        // given
+        Employee e1 = new Employee(1L, "Martín", "Díaz", "Desarrollador", true);
+        when(this.employeeService.showEmployee(anyLong())).thenReturn(Mono.just(e1));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri("/api/v1/employees/{employeeId}", 1)
+                .exchange();
+
+        // then
+        response.expectStatus().isOk()
+                .expectBody(Employee.class)
+                .consumeWith(employeeEntityExchangeResult -> {
+                    Employee responseBody = employeeEntityExchangeResult.getResponseBody();
+                    assertThat(responseBody).isNotNull();
+                    assertThat(responseBody.getId()).isEqualTo(e1.getId());
+                    assertThat(responseBody.getFirstName()).isEqualTo(e1.getFirstName());
+                    assertThat(responseBody.getLastName()).isEqualTo(e1.getLastName());
+                    assertThat(responseBody.isFullTime()).isEqualTo(e1.isFullTime());
+                });
+        verify(this.employeeService).showEmployee(anyLong());
+    }
+
+    @Test
+    void shouldReturnNotFoundMessage_whenInvalidIdIsProvided() {
+        // given
+        when(this.employeeService.showEmployee(anyLong())).thenThrow(new EmployeeNotFoundException(1L));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri("/api/v1/employees/{employeeId}", 1)
+                .exchange();
+
+        // then
+        response.expectStatus().isNotFound()
+                .expectBody(ErrorResponse.class)
+                .consumeWith(employeeEntityExchangeResult -> {
+                    ErrorResponse responseBody = employeeEntityExchangeResult.getResponseBody();
+                    assertThat(responseBody).isNotNull();
+                    assertThat(responseBody.errors().get("message")).isEqualTo("El empleado con id 1 no fue encontrado");
+                });
+        verify(this.employeeService).showEmployee(anyLong());
+    }
+
+    @Test
+    void shouldSaveEmployee_whenValidEmployeeIsProvided() {
+        // given
+        CreateEmployeeRequest request = new CreateEmployeeRequest("Milu", "Jara", "Teacher", false);
+        Employee savedEmployee = new Employee(1L, "Milu", "Jara", "Teacher", false);
+        when(this.employeeService.createEmployee(any(CreateEmployeeRequest.class))).thenReturn(Mono.just(savedEmployee));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.post()
+                .uri("/api/v1/employees")
+                .bodyValue(request)
+                .exchange();
+
+        // then
+        response.expectStatus().isCreated()
+                .expectBody(Employee.class)
+                .consumeWith(employeeEntityExchangeResult -> {
+                    Employee responseBody = employeeEntityExchangeResult.getResponseBody();
+                    assertThat(responseBody).isNotNull();
+                    assertThat(responseBody.getId()).isEqualTo(1L);
+                    assertThat(responseBody.getFirstName()).isEqualTo(request.firstName());
+                    assertThat(responseBody.getLastName()).isEqualTo(request.lastName());
+                    assertThat(responseBody.isFullTime()).isEqualTo(request.isFullTime());
+                });
+        verify(this.employeeService).createEmployee(any(CreateEmployeeRequest.class));
+    }
+
+    @Test
+    void shouldUpdateEmployee_whenValidIdIsProvided() {
+        // given
+        Employee updatedEmployee = new Employee(1L, "Martín", "Díaz", "Desarrollador Senior", true);
+
+        when(this.employeeService.updateEmployee(anyLong(), any(Employee.class))).thenReturn(Mono.just(updatedEmployee));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.put()
+                .uri("/api/v1/employees/{employeeId}", 1)
+                .bodyValue(updatedEmployee)
+                .exchange();
+
+        // then
+        response.expectStatus().isOk()
+                .expectBody(Employee.class)
+                .consumeWith(employeeEntityExchangeResult -> {
+                    Employee responseBody = employeeEntityExchangeResult.getResponseBody();
+                    assertThat(responseBody).isNotNull();
+                    assertThat(responseBody.getId()).isEqualTo(updatedEmployee.getId());
+                    assertThat(responseBody.getFirstName()).isEqualTo(updatedEmployee.getFirstName());
+                    assertThat(responseBody.getLastName()).isEqualTo(updatedEmployee.getLastName());
+                    assertThat(responseBody.isFullTime()).isEqualTo(updatedEmployee.isFullTime());
+                });
+        verify(this.employeeService).updateEmployee(anyLong(), any(Employee.class));
+    }
+
+    @Test
+    void shouldDeleteEmployee_whenValidIdIsProvided() {
+        // given
+        when(this.employeeService.deleteEmployee(anyLong())).thenReturn(Mono.empty());
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.delete()
+                .uri("/api/v1/employees/{employeeId}", 1)
+                .exchange();
+
+        // then
+        response.expectStatus().isNoContent();
+        verify(this.employeeService).deleteEmployee(anyLong());
+    }
+
+    @Test
+    void shouldReturnNotFoundMessageToDelete_whenInvalidIdIsProvided() {
+        // given
+        when(this.employeeService.deleteEmployee(anyLong())).thenThrow(new EmployeeNotFoundException(100L));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.delete()
+                .uri("/api/v1/employees/{employeeId}", 100)
+                .exchange();
+
+        // then
+        response.expectStatus().isNotFound()
+                .expectBody(ErrorResponse.class)
+                .consumeWith(errorResponseEntityExchangeResult -> {
+                    ErrorResponse responseBody = errorResponseEntityExchangeResult.getResponseBody();
+                    assertThat(responseBody).isNotNull();
+                    assertThat(responseBody.errors().get("message")).isEqualTo("El empleado con id 100 no fue encontrado");
+                });
+        verify(this.employeeService).deleteEmployee(anyLong());
+    }
+}
+````
+
+Hasta este punto, ejecutamos la clase de prueba anterior y vemos que todas pasan correctamente.
+
+![06.png](assets/06.png)
