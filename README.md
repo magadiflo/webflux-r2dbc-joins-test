@@ -244,7 +244,7 @@ volumes:
 Cada vez que iniciemos la aplicación, se ejecutarán los scripts que estamos definiendo en este `@Bean` de configuración,
 de esta manera nos aseguramos de que las tablas de la base de dato siempre estén pobladas al iniciar la aplicación.
 Cabe resaltar que aunque el archivo `schema.sql` se ejecute cada vez que se inicie la aplicación, solo se crearán las
-tablas una sola vez, dado que colocamos en las instrucciónes `DML` lo siguiente `CREATE TABLE IF NOT EXISTS...`.
+tablas una sola vez, dado que colocamos en las instrucciónes `DDL` lo siguiente `CREATE TABLE IF NOT EXISTS...`.
 
 ````java
 
