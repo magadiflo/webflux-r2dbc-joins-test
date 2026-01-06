@@ -1,3 +1,18 @@
+server:
+  port: 8080
+  error:
+    include-message: always
+
 spring:
   application:
     name: webflux-crud-test
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5435/db_webflux_r2dbc
+    username: magadiflo
+    password: magadiflo
+
+logging:
+  level:
+    dev.magadiflo.app: debug
+    io.r2dbc.postgresql.query: debug
+    io.r2dbc.postgresql.param: debug
