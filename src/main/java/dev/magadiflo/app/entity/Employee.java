@@ -21,7 +21,6 @@ import java.util.Objects;
 @Getter
 @Table(name = "employees")
 public class Employee {
-
     @Id
     private Long id;
     private String firstName;
