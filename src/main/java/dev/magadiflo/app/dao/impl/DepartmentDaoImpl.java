@@ -74,7 +74,12 @@ public class DepartmentDaoImpl implements DepartmentDao {
 
     @Override
     public Mono<Department> findByName(String name) {
-        return null;
+        return this.client.sql("%s WHERE d.name = :departmentName".formatted(SELECT_QUERY))
+                .bind("departmentName", name)
+                .fetch()
+                .all()
+                .collectList()
+                .flatMap(Department::fromRows);
     }
 
     @Override
