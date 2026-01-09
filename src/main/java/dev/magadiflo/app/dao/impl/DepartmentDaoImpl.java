@@ -48,7 +48,18 @@ public class DepartmentDaoImpl implements DepartmentDao {
 
     @Override
     public Mono<Department> findById(Long departmentId) {
-        return null;
+        return this.client.sql("""
+                        SELECT id, name
+                        FROM departments
+                        WHERE id = :departmentId
+                        """)
+                .bind("departmentId", departmentId)
+                .map((row, rowMetadata) -> Department.builder()
+                        .id(row.get("id", Long.class))
+                        .name(row.get("name", String.class))
+                        .build()
+                )
+                .first();
     }
 
     @Override
