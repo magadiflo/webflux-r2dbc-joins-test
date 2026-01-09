@@ -64,7 +64,12 @@ public class DepartmentDaoImpl implements DepartmentDao {
 
     @Override
     public Mono<Department> findDepartmentWithManagerAndEmployees(Long departmentId) {
-        return null;
+        return this.client.sql("%s WHERE d.id = :departmentId".formatted(SELECT_QUERY))
+                .bind("departmentId", departmentId)
+                .fetch()
+                .all()
+                .collectList()
+                .flatMap(Department::fromRows);
     }
 
     @Override
