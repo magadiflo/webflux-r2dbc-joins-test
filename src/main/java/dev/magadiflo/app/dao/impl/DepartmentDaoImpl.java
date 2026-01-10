@@ -86,7 +86,35 @@ public class DepartmentDaoImpl implements DepartmentDao {
 
     @Override
     public Mono<Department> save(Department department) {
-        return null;
+        return this.saveDepartment(department)
+                .flatMap(this::saveManager)
+                .flatMap(this::saveEmployees)
+                .flatMap(this::deleteDepartmentManager)
+                .flatMap(this::saveDepartmentManager)
+                .flatMap(this::deleteDepartmentEmployees)
+                .flatMap(this::saveDepartmentEmployees);
+    }
+
+    @Override
+    public Mono<Void> delete(Department department) {
+        return this.deleteDepartmentManager(department)
+                .flatMap(this::deleteDepartmentEmployees)
+                .flatMap(this::deleteDepartment);
+    }
+
+    private Mono<Department> saveEmployees(Department department) {
+        return Flux.fromIterable(department.getEmployees())
+                .flatMap(this.employeeRepository::save)
+                .collectList()
+                .doOnNext(department::setEmployees)
+                .thenReturn(department);
+    }
+
+    private Mono<Department> saveManager(Department department) {
+        return Mono.justOrEmpty(department.getManager())
+                .flatMap(this.employeeRepository::save)
+                .doOnNext(department::setManager)
+                .thenReturn(department);
     }
 
     private Mono<Department> saveDepartment(Department department) {
@@ -114,11 +142,31 @@ public class DepartmentDaoImpl implements DepartmentDao {
                 .thenReturn(department);
     }
 
-    @Override
-    public Mono<Void> delete(Department department) {
-        return this.deleteDepartmentManager(department)
-                .flatMap(this::deleteDepartmentEmployee)
-                .flatMap(this::deleteDepartment);
+    private Mono<Department> saveDepartmentManager(Department department) {
+        return Mono.justOrEmpty(department.getManager())
+                .flatMap(manager -> this.client.sql("""
+                                INSERT INTO department_managers(department_id, employee_id)
+                                VALUES(:departmentId, :employeeId)
+                                """)
+                        .bind("departmentId", department.getId())
+                        .bind("employeeId", manager.getId())
+                        .fetch()
+                        .rowsUpdated())
+                .thenReturn(department);
+    }
+
+    private Mono<Department> saveDepartmentEmployees(Department department) {
+        return Flux.fromIterable(department.getEmployees())
+                .flatMap(employee -> this.client.sql("""
+                                INSERT INTO department_employees(department_id, employee_id)
+                                        VALUES(:departmentId, :employeeId)
+                                """)
+                        .bind("departmentId", department.getId())
+                        .bind("employeeId", employee.getId())
+                        .fetch()
+                        .rowsUpdated())
+                .collectList()
+                .thenReturn(department);
     }
 
     private Mono<Department> deleteDepartmentManager(Department department) {
@@ -129,7 +177,7 @@ public class DepartmentDaoImpl implements DepartmentDao {
                 .thenReturn(department);
     }
 
-    private Mono<Department> deleteDepartmentEmployee(Department department) {
+    private Mono<Department> deleteDepartmentEmployees(Department department) {
         return this.client.sql("DELETE FROM department_employees WHERE department_id = :departmentId")
                 .bind("departmentId", department.getId())
                 .fetch()
