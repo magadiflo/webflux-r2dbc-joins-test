@@ -10,6 +10,8 @@ import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Objects;
+
 @Slf4j
 @RequiredArgsConstructor
 @Repository
@@ -85,6 +87,31 @@ public class DepartmentDaoImpl implements DepartmentDao {
     @Override
     public Mono<Department> save(Department department) {
         return null;
+    }
+
+    private Mono<Department> saveDepartment(Department department) {
+        if (Objects.isNull(department.getId())) {
+            return this.client.sql("""
+                            INSERT INTO departments(name)
+                            VALUES(:name)
+                            """)
+                    .bind("name", department.getName())
+                    .filter((statement, next) -> statement.returnGeneratedValues("id").execute())
+                    .fetch()
+                    .one()
+                    .doOnNext(result -> department.setId(((Number) result.get("id")).longValue()))
+                    .thenReturn(department);
+        }
+        return this.client.sql("""
+                        UPDATE departments
+                        SET name = :name
+                        WHERE id = :departmentId
+                        """)
+                .bind("name", department.getName())
+                .bind("departmentId", department.getId())
+                .fetch()
+                .one()
+                .thenReturn(department);
     }
 
     @Override
