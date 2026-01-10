@@ -89,6 +89,32 @@ public class DepartmentDaoImpl implements DepartmentDao {
 
     @Override
     public Mono<Void> delete(Department department) {
-        return null;
+        return this.deleteDepartmentManager(department)
+                .flatMap(this::deleteDepartmentEmployee)
+                .flatMap(this::deleteDepartment);
+    }
+
+    private Mono<Department> deleteDepartmentManager(Department department) {
+        return this.client.sql("DELETE FROM department_managers WHERE department_id = :departmentId")
+                .bind("departmentId", department.getId())
+                .fetch()
+                .rowsUpdated()
+                .thenReturn(department);
+    }
+
+    private Mono<Department> deleteDepartmentEmployee(Department department) {
+        return this.client.sql("DELETE FROM department_employees WHERE department_id = :departmentId")
+                .bind("departmentId", department.getId())
+                .fetch()
+                .rowsUpdated()
+                .thenReturn(department);
+    }
+
+    private Mono<Void> deleteDepartment(Department department) {
+        return this.client.sql("DELETE FROM departments WHERE id = :departmentId")
+                .bind("departmentId", department.getId())
+                .fetch()
+                .rowsUpdated()
+                .then();
     }
 }
