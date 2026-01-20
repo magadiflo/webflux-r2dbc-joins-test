@@ -5,6 +5,7 @@ import dev.magadiflo.app.dto.CreateDepartmentRequest;
 import dev.magadiflo.app.dto.DepartmentResponse;
 import dev.magadiflo.app.dto.EmployeeResponse;
 import dev.magadiflo.app.entity.Department;
+import dev.magadiflo.app.exception.DepartmentAlreadyExistsException;
 import dev.magadiflo.app.exception.DepartmentNotFoundException;
 import dev.magadiflo.app.mapper.DepartmentMapper;
 import dev.magadiflo.app.service.DepartmentService;
@@ -46,7 +47,11 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     @Transactional
     public Mono<DepartmentResponse> createDepartment(CreateDepartmentRequest request) {
-        return null;
+        return this.departmentDao.findByName(request.name())
+                .flatMap(department -> Mono.<Department>error(new DepartmentAlreadyExistsException(department.getName())))
+                .switchIfEmpty(Mono.fromSupplier(() -> this.departmentMapper.toDepartment(request)))
+                .flatMap(this.departmentDao::save)
+                .map(this.departmentMapper::toBasicDepartmentResponse);
     }
 
     @Override
