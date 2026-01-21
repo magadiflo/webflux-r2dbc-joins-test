@@ -57,7 +57,18 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     @Transactional
     public Mono<DepartmentResponse> updateDepartment(Long departmentId, Department department) {
-        return null;
+        return this.departmentDao.findById(departmentId)
+                .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
+                .map(departmentDB -> {
+                    departmentDB.setName(department.getName());
+                    if (department.getManager().isPresent()) {
+                        departmentDB.setManager(department.getManager().get());
+                    }
+                    departmentDB.setEmployees(department.getEmployees());
+                    return departmentDB;
+                })
+                .flatMap(this.departmentDao::save)
+                .map(this.departmentMapper::toDepartmentResponse);
     }
 
     @Override
