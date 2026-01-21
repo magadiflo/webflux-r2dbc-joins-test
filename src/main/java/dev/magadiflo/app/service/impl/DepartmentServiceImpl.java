@@ -8,6 +8,7 @@ import dev.magadiflo.app.entity.Department;
 import dev.magadiflo.app.exception.DepartmentAlreadyExistsException;
 import dev.magadiflo.app.exception.DepartmentNotFoundException;
 import dev.magadiflo.app.mapper.DepartmentMapper;
+import dev.magadiflo.app.mapper.EmployeeMapper;
 import dev.magadiflo.app.service.DepartmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ public class DepartmentServiceImpl implements DepartmentService {
 
     private final DepartmentDao departmentDao;
     private final DepartmentMapper departmentMapper;
+    private final EmployeeMapper employeeMapper;
 
     @Override
     public Flux<DepartmentResponse> getAllDepartments() {
@@ -57,7 +59,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     @Transactional
     public Mono<DepartmentResponse> updateDepartment(Long departmentId, Department department) {
-        return this.departmentDao.findById(departmentId)
+        return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
                 .map(departmentDB -> {
                     departmentDB.setName(department.getName());
@@ -74,11 +76,26 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     @Transactional
     public Mono<Void> deleteDepartment(Long departmentId) {
-        return null;
+        return this.departmentDao.findById(departmentId)
+                .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
+                .flatMap(this.departmentDao::delete);
     }
 
     @Override
-    public Mono<EmployeeResponse> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime) {
-        return null;
+    public Flux<EmployeeResponse> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime) {
+        if (isFullTime != null) {
+            return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
+                    .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
+                    .flatMapMany(department -> Flux.fromStream(
+                                    department.getEmployees().stream()
+                                            .filter(employee -> employee.getFullTime().equals(isFullTime))
+                            )
+                    )
+                    .map(this.employeeMapper::toEmployeeResponse);
+        }
+        return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
+                .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
+                .flatMapMany(department -> Flux.fromIterable(department.getEmployees()))
+                .map(this.employeeMapper::toEmployeeResponse);
     }
 }

@@ -20,5 +20,5 @@ public interface DepartmentService {
 
     Mono<Void> deleteDepartment(Long departmentId);
 
-    Mono<EmployeeResponse> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime);
+    Flux<EmployeeResponse> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime);
 }
