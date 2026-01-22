@@ -1,8 +1,10 @@
 package dev.magadiflo.app.service.impl;
 
 import dev.magadiflo.app.dto.CreateEmployeeRequest;
+import dev.magadiflo.app.dto.EmployeeResponse;
 import dev.magadiflo.app.entity.Employee;
 import dev.magadiflo.app.exception.EmployeeNotFoundException;
+import dev.magadiflo.app.mapper.EmployeeMapper;
 import dev.magadiflo.app.repository.EmployeeRepository;
 import dev.magadiflo.app.service.EmployeeService;
 import lombok.RequiredArgsConstructor;
@@ -21,45 +23,52 @@ import java.util.Objects;
 public class EmployeeServiceImpl implements EmployeeService {
 
     private final EmployeeRepository employeeRepository;
+    private final EmployeeMapper employeeMapper;
 
     @Override
-    public Flux<Employee> getAllEmployees(String position, Boolean isFullTime) {
+    public Flux<EmployeeResponse> getAllEmployees(String position, Boolean isFullTime) {
         if (Objects.isNull(position) && Objects.isNull(isFullTime)) {
-            return this.employeeRepository.findAll();
+            return this.employeeRepository.findAll()
+                    .map(this.employeeMapper::toEmployeeResponse);
         }
 
         if (Objects.nonNull(position) && Objects.nonNull(isFullTime)) {
-            return this.employeeRepository.findByPositionAndFullTime(position, isFullTime);
+            return this.employeeRepository.findByPositionAndFullTime(position, isFullTime)
+                    .map(this.employeeMapper::toEmployeeResponse);
         }
 
         if (Objects.nonNull(position)) {
-            return this.employeeRepository.findByPosition(position);
+            return this.employeeRepository.findByPosition(position)
+                    .map(this.employeeMapper::toEmployeeResponse);
         }
 
-        return this.employeeRepository.findByFullTime(isFullTime);
+        return this.employeeRepository.findByFullTime(isFullTime)
+                .map(this.employeeMapper::toEmployeeResponse);
     }
 
     @Override
-    public Mono<Employee> showEmployee(Long employeeId) {
+    public Mono<EmployeeResponse> showEmployee(Long employeeId) {
         return this.employeeRepository.findById(employeeId)
-                .switchIfEmpty(Mono.error(new EmployeeNotFoundException(employeeId)));
+                .switchIfEmpty(Mono.error(new EmployeeNotFoundException(employeeId)))
+                .map(this.employeeMapper::toEmployeeResponse);
     }
 
     @Override
     @Transactional
-    public Mono<Employee> createEmployee(CreateEmployeeRequest request) {
+    public Mono<EmployeeResponse> createEmployee(CreateEmployeeRequest request) {
         return this.employeeRepository.save(Employee.builder()
-                .firstName(request.firstName())
-                .lastName(request.lastName())
-                .position(request.position())
-                .fullTime(request.isFullTime())
-                .build()
-        );
+                        .firstName(request.firstName())
+                        .lastName(request.lastName())
+                        .position(request.position())
+                        .fullTime(request.isFullTime())
+                        .build()
+                )
+                .map(this.employeeMapper::toEmployeeResponse);
     }
 
     @Override
     @Transactional
-    public Mono<Employee> updateEmployee(Long employeeId, Employee employee) {
+    public Mono<EmployeeResponse> updateEmployee(Long employeeId, Employee employee) {
         return this.employeeRepository.findById(employeeId)
                 .switchIfEmpty(Mono.error(new EmployeeNotFoundException(employeeId)))
                 .map(employeeDB -> {
@@ -71,7 +80,8 @@ public class EmployeeServiceImpl implements EmployeeService {
                     return employeeDB;
                 })
                 .flatMap(this.employeeRepository::save)
-                .doOnNext(employeeDB -> log.info("Empleado actualizado: {}", employeeDB));
+                .doOnNext(employeeDB -> log.info("Empleado actualizado: {}", employeeDB))
+                .map(this.employeeMapper::toEmployeeResponse);
     }
 
     @Override
