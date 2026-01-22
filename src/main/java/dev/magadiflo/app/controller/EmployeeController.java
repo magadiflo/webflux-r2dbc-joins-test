@@ -1,0 +1,67 @@
+package dev.magadiflo.app.controller;
+
+import dev.magadiflo.app.dto.CreateEmployeeRequest;
+import dev.magadiflo.app.dto.EmployeeResponse;
+import dev.magadiflo.app.entity.Employee;
+import dev.magadiflo.app.service.EmployeeService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+@Slf4j
+@RequiredArgsConstructor
+@RestController
+@RequestMapping(path = "/api/v1/employees")
+public class EmployeeController {
+
+    private final EmployeeService employeeService;
+
+    @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Mono<ResponseEntity<Flux<EmployeeResponse>>> findAllEmployees(@RequestParam(required = false) String position,
+                                                                         @RequestParam(required = false) Boolean fullTime) {
+        return Mono.just(ResponseEntity.ok(this.employeeService.getAllEmployees(position, fullTime)));
+    }
+
+    @GetMapping(path = "/{employeeId}")
+    public Mono<ResponseEntity<EmployeeResponse>> findEmployee(@PathVariable Long employeeId) {
+        return this.employeeService.showEmployee(employeeId)
+                .map(ResponseEntity::ok);
+    }
+
+    @PostMapping
+    public Mono<ResponseEntity<EmployeeResponse>> saveEmployee(@Valid @RequestBody Mono<CreateEmployeeRequest> requestMono) {
+        return requestMono
+                .flatMap(this.employeeService::createEmployee)
+                .map(employeeResponse -> ResponseEntity.status(HttpStatus.CREATED).body(employeeResponse));
+    }
+
+    @PutMapping(path = "/{employeeId}")
+    public Mono<ResponseEntity<EmployeeResponse>> updateEmployee(@PathVariable Long employeeId,
+                                                                 @Valid @RequestBody Mono<Employee> requestMono) {
+        return requestMono
+                .flatMap(employee -> this.employeeService.updateEmployee(employeeId, employee))
+                .map(ResponseEntity::ok);
+    }
+
+    @DeleteMapping(path = "/{employeeId}")
+    public Mono<ResponseEntity<Void>> deleteEmployee(@PathVariable Long employeeId) {
+        return this.employeeService.deleteEmployee(employeeId)
+                .thenReturn(ResponseEntity.noContent().build());
+    }
+
+}
+
