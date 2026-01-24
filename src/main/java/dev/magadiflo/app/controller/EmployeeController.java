@@ -33,12 +33,15 @@ public class EmployeeController {
     @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Mono<ResponseEntity<Flux<EmployeeResponse>>> findAllEmployees(@RequestParam(required = false) String position,
                                                                          @RequestParam(required = false) Boolean fullTime) {
-        return Mono.just(ResponseEntity.ok(this.employeeService.getAllEmployees(position, fullTime)));
+        Flux<EmployeeResponse> employeeResponseFlux = this.employeeService.getAllEmployees(position, fullTime)
+                .doOnNext(employeeResponse -> log.info("{}", employeeResponse));
+        return Mono.just(ResponseEntity.ok(employeeResponseFlux));
     }
 
     @GetMapping(path = "/{employeeId}")
     public Mono<ResponseEntity<EmployeeResponse>> findEmployee(@PathVariable Long employeeId) {
         return this.employeeService.showEmployee(employeeId)
+                .doOnNext(employeeResponse -> log.info("{}", employeeResponse))
                 .map(ResponseEntity::ok);
     }
 
@@ -46,6 +49,7 @@ public class EmployeeController {
     public Mono<ResponseEntity<EmployeeResponse>> saveEmployee(@Valid @RequestBody Mono<CreateEmployeeRequest> requestMono) {
         return requestMono
                 .flatMap(this.employeeService::createEmployee)
+                .doOnNext(employeeResponse -> log.info("{}", employeeResponse))
                 .map(employeeResponse -> ResponseEntity.status(HttpStatus.CREATED).body(employeeResponse));
     }
 
@@ -54,6 +58,7 @@ public class EmployeeController {
                                                                  @Valid @RequestBody Mono<Employee> requestMono) {
         return requestMono
                 .flatMap(employee -> this.employeeService.updateEmployee(employeeId, employee))
+                .doOnNext(employeeResponse -> log.info("{}", employeeResponse))
                 .map(ResponseEntity::ok);
     }
 

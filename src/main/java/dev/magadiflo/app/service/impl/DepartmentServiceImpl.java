@@ -43,6 +43,7 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     public Mono<DepartmentResponse> showDepartmentWithManagerAndEmployees(Long departmentId) {
         return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
+                .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
                 .map(this.departmentMapper::toDepartmentResponse);
     }
 

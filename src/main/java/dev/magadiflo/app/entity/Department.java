@@ -36,6 +36,8 @@ public class Department {
     }
 
     public static Mono<Department> fromRows(List<Map<String, Object>> rows) {
+        if (rows.isEmpty()) return Mono.empty();
+
         Map<String, Object> rowsFirst = rows.getFirst();
         Department department = Department.builder()
                 .id(((Number) rowsFirst.get("d_id")).longValue())
