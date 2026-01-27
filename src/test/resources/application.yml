@@ -1,0 +1,16 @@
+server:
+  port: 0
+  error:
+    include-message: always
+
+spring:
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5436/db_webflux_r2dbc_test
+    username: magadiflo
+    password: magadiflo
+
+logging:
+  level:
+    dev.magadiflo.app: debug
+    io.r2dbc.postgresql.query: debug
+    io.r2dbc.postgresql.param: debug
