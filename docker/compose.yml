@@ -14,6 +14,19 @@ services:
     networks:
       - webflux-net
 
+  s-postgres-webflux-test:
+    image: postgres:17-alpine
+    container_name: c-postgres-webflux-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: db_webflux_r2dbc_test
+      POSTGRES_USER: magadiflo
+      POSTGRES_PASSWORD: magadiflo
+    ports:
+      - '5436:5432'
+    networks:
+      - webflux-net
+
 volumes:
   postgres-webflux-data:
     name: postgres-webflux-data
