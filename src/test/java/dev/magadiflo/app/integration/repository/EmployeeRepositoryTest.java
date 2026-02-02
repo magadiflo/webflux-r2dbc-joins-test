@@ -69,4 +69,12 @@ class EmployeeRepositoryTest {
                 })
                 .verifyComplete();
     }
+
+    @Test
+    void shouldDoesNotReturnEmployeeWithIdThatDoesNotExist() {
+        this.employeeRepository.findById(8L)
+                .as(StepVerifier::create)
+                .expectNextCount(0)
+                .verifyComplete();
+    }
 }
