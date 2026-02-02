@@ -19,6 +19,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 @DataR2dbcTest
 @ContextConfiguration(classes = TestDatabaseConfig.class)
 class EmployeeRepositoryTest {
@@ -53,6 +55,18 @@ class EmployeeRepositoryTest {
         this.employeeRepository.findAll()
                 .as(StepVerifier::create)
                 .expectNextCount(7)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldFindAnEmployee() {
+        this.employeeRepository.findById(6L)
+                .as(StepVerifier::create)
+                .consumeNextWith(employee -> {
+                    assertThat(employee)
+                            .extracting("id", "firstName", "lastName", "position", "fullTime")
+                            .containsExactly(6L, "Lizbeth", "Gonzales", "Teacher", true);
+                })
                 .verifyComplete();
     }
 }
