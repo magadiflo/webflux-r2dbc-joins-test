@@ -109,4 +109,12 @@ class EmployeeRepositoryTest {
                 .consumeNextWith(employee -> assertThat(employee.getId()).isEqualTo(7L))
                 .verifyComplete();
     }
+
+    @Test
+    void shouldFindAllEmployeesByFirstName() {
+        this.employeeRepository.findByFirstName("Katherine")
+                .as(StepVerifier::create)
+                .assertNext(employee -> assertThat(employee.getId()).isEqualTo(2L))
+                .verifyComplete();
+    }
 }
