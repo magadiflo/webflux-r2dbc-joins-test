@@ -86,4 +86,18 @@ class EmployeeRepositoryTest {
                 .expectNextMatches(employee -> employee.getId().equals(4L))
                 .verifyComplete();
     }
+
+    @Test
+    void shouldFindAllEmployeeByFullTime() {
+        this.employeeRepository.findByFullTime(false)
+                .as(StepVerifier::create)
+                .assertNext(employee -> {
+                    assertThat(employee.getId()).isEqualTo(3L);
+                    assertThat(employee.getFirstName()).isEqualTo("Vanessa");
+                    assertThat(employee.getLastName()).isEqualTo("Bello");
+                    assertThat(employee.getPosition()).isEqualTo("Diseñador");
+                    assertThat(employee.getFullTime()).isFalse();
+                })
+                .verifyComplete();
+    }
 }
