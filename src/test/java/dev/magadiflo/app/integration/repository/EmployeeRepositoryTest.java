@@ -77,4 +77,13 @@ class EmployeeRepositoryTest {
                 .expectNextCount(0)
                 .verifyComplete();
     }
+
+    @Test
+    void shouldFindAllEmployeesByPosition() {
+        this.employeeRepository.findByPosition("Gerente")
+                .as(StepVerifier::create)
+                .expectNextMatches(employee -> employee.getId().equals(1L))
+                .expectNextMatches(employee -> employee.getId().equals(4L))
+                .verifyComplete();
+    }
 }
