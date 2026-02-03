@@ -100,4 +100,13 @@ class EmployeeRepositoryTest {
                 })
                 .verifyComplete();
     }
+
+    @Test
+    void shouldFindAllEmployeesByPositionAndFullTime() {
+        this.employeeRepository.findByPositionAndFullTime("Teacher", true)
+                .as(StepVerifier::create)
+                .consumeNextWith(employee -> assertThat(employee.getId()).isEqualTo(6L))
+                .consumeNextWith(employee -> assertThat(employee.getId()).isEqualTo(7L))
+                .verifyComplete();
+    }
 }
