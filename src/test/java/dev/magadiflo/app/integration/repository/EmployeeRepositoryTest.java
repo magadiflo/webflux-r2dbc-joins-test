@@ -1,7 +1,9 @@
 package dev.magadiflo.app.integration.repository;
 
 import dev.magadiflo.app.config.TestDatabaseConfig;
+import dev.magadiflo.app.entity.Employee;
 import dev.magadiflo.app.repository.EmployeeRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +14,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.test.context.ContextConfiguration;
 
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.io.IOException;
@@ -21,6 +24,7 @@ import java.nio.file.Paths;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Slf4j
 @DataR2dbcTest
 @ContextConfiguration(classes = TestDatabaseConfig.class)
 class EmployeeRepositoryTest {
@@ -116,5 +120,28 @@ class EmployeeRepositoryTest {
                 .as(StepVerifier::create)
                 .assertNext(employee -> assertThat(employee.getId()).isEqualTo(2L))
                 .verifyComplete();
+    }
+
+    @Test
+    void shouldSaveAnEmployee() {
+        // given
+        Employee employee = Employee.builder()
+                .firstName("Lesly")
+                .lastName("Águila")
+                .position("Vocalista")
+                .fullTime(true)
+                .build();
+
+        // when
+        Mono<Employee> employeeMono = this.employeeRepository.save(employee);
+
+        // then
+        StepVerifier.create(employeeMono)
+                .assertNext(employeeDB -> {
+                    assertThat(employeeDB.getId()).isNotNull();
+                    assertThat(employeeDB.getFirstName()).isEqualTo(employee.getFirstName());
+                    assertThat(employeeDB.getLastName()).isEqualTo(employee.getLastName());
+                    assertThat(employeeDB).isEqualTo(employee);
+                }).verifyComplete();
     }
 }
