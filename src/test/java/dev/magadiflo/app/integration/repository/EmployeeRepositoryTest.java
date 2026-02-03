@@ -144,4 +144,20 @@ class EmployeeRepositoryTest {
                     assertThat(employeeDB).isEqualTo(employee);
                 }).verifyComplete();
     }
+
+    @Test
+    void shouldDeleteAnEmployee() {
+        this.employeeRepository.findById(6L)
+                .as(StepVerifier::create)
+                .expectNextCount(1)
+                .verifyComplete();
+
+        this.employeeRepository.deleteById(6L)
+                .as(StepVerifier::create)
+                .verifyComplete();
+
+        this.employeeRepository.findById(6L)
+                .as(StepVerifier::create)
+                .verifyComplete();
+    }
 }
