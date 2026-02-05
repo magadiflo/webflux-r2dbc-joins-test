@@ -11,12 +11,15 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 class DepartmentDaoTest {
@@ -55,6 +58,23 @@ class DepartmentDaoTest {
                 .expectNextMatches(department -> department.getName().equals("Ventas"))
                 .expectNextMatches(department -> department.getName().equals("Legal"))
                 .expectNextMatches(department -> department.getName().equals("Soporte"))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldFindADepartmentWithValidId() {
+        // given
+        Long departmentId = 1L;
+
+        // when
+        Mono<Department> departmentMono = this.departmentDao.findById(departmentId);
+
+        // then
+        StepVerifier.create(departmentMono)
+                .assertNext(department -> {
+                    assertThat(department.getId()).isEqualTo(departmentId);
+                    assertThat(department.getName()).isEqualTo("Tecnología");
+                })
                 .verifyComplete();
     }
 }
