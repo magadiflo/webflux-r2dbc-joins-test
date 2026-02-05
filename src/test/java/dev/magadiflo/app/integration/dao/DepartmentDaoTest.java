@@ -77,4 +77,17 @@ class DepartmentDaoTest {
                 })
                 .verifyComplete();
     }
+
+    @Test
+    void shouldNotReturnDepartmentWithInvalidId() {
+        // given
+        Long departmentId = 100L;
+
+        // when
+        Mono<Department> departmentMono = this.departmentDao.findById(departmentId);
+
+        // then
+        StepVerifier.create(departmentMono)
+                .verifyComplete();
+    }
 }
