@@ -285,4 +285,21 @@ class DepartmentDaoTest {
                 })
                 .verifyComplete();
     }
+
+    @Test
+    void shouldDeleteDepartmentWithManagerAndEmployees() {
+        // given
+        Long departmentId = 1L;
+        Department departmentToDelete = Department.builder().id(departmentId).build();
+
+        // when
+        Mono<Void> deleteMono  = this.departmentDao.delete(departmentToDelete);
+
+        // then
+        StepVerifier.create(deleteMono)
+                .verifyComplete();
+
+        StepVerifier.create(this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId))
+                .verifyComplete();
+    }
 }
