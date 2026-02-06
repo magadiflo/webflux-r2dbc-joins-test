@@ -1,5 +1,6 @@
 package dev.magadiflo.app.integration.dao;
 
+import dev.magadiflo.app.config.TestDatabaseConfig;
 import dev.magadiflo.app.dao.DepartmentDao;
 import dev.magadiflo.app.dao.impl.DepartmentDaoImpl;
 import dev.magadiflo.app.entity.Department;
@@ -13,6 +14,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.r2dbc.core.DatabaseClient;
+import org.springframework.test.context.ContextConfiguration;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -26,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Import(DepartmentDaoImpl.class)
 @DataR2dbcTest
+@ContextConfiguration(classes = TestDatabaseConfig.class)
 class DepartmentDaoTest {
 
     @Autowired
@@ -124,6 +127,25 @@ class DepartmentDaoTest {
                             .hasSize(2)
                             .map(Employee::getId)
                             .containsExactlyInAnyOrder(2L, 3L);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldFindDepartmentByName() {
+        // given
+        String departmentName = "Legal";
+
+        // when
+        Mono<Department> departmentMono = this.departmentDao.findByName(departmentName);
+
+        // then
+        StepVerifier.create(departmentMono)
+                .assertNext(department -> {
+                    assertThat(department.getId()).isEqualTo(3L);
+                    assertThat(department.getName()).isEqualTo(departmentName);
+                    assertThat(department.getManager()).isEmpty();
+                    assertThat(department.getEmployees()).isEmpty();
                 })
                 .verifyComplete();
     }
