@@ -1,6 +1,6 @@
 package dev.magadiflo.app.service.impl;
 
-import dev.magadiflo.app.dto.CreateEmployeeRequest;
+import dev.magadiflo.app.dto.EmployeeRequest;
 import dev.magadiflo.app.dto.EmployeeResponse;
 import dev.magadiflo.app.entity.Employee;
 import dev.magadiflo.app.exception.EmployeeNotFoundException;
@@ -55,12 +55,12 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional
-    public Mono<EmployeeResponse> createEmployee(CreateEmployeeRequest request) {
+    public Mono<EmployeeResponse> createEmployee(EmployeeRequest request) {
         return this.employeeRepository.save(Employee.builder()
                         .firstName(request.firstName())
                         .lastName(request.lastName())
                         .position(request.position())
-                        .fullTime(request.isFullTime())
+                        .fullTime(request.fullTime())
                         .build()
                 )
                 .map(this.employeeMapper::toEmployeeResponse);
@@ -68,15 +68,15 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional
-    public Mono<EmployeeResponse> updateEmployee(Long employeeId, Employee employee) {
+    public Mono<EmployeeResponse> updateEmployee(Long employeeId, EmployeeRequest employeeRequest) {
         return this.employeeRepository.findById(employeeId)
                 .switchIfEmpty(Mono.error(new EmployeeNotFoundException(employeeId)))
                 .map(employeeDB -> {
                     log.info("Empleado encontrado: {}", employeeDB);
-                    employeeDB.setFirstName(employee.getFirstName());
-                    employeeDB.setLastName(employee.getLastName());
-                    employeeDB.setPosition(employee.getPosition());
-                    employeeDB.setFullTime(employee.getFullTime());
+                    employeeDB.setFirstName(employeeRequest.firstName());
+                    employeeDB.setLastName(employeeRequest.lastName());
+                    employeeDB.setPosition(employeeRequest.position());
+                    employeeDB.setFullTime(employeeRequest.fullTime());
                     return employeeDB;
                 })
                 .flatMap(this.employeeRepository::save)

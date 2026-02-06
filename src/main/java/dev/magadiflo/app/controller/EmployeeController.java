@@ -1,8 +1,7 @@
 package dev.magadiflo.app.controller;
 
-import dev.magadiflo.app.dto.CreateEmployeeRequest;
+import dev.magadiflo.app.dto.EmployeeRequest;
 import dev.magadiflo.app.dto.EmployeeResponse;
-import dev.magadiflo.app.entity.Employee;
 import dev.magadiflo.app.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +45,7 @@ public class EmployeeController {
     }
 
     @PostMapping
-    public Mono<ResponseEntity<EmployeeResponse>> saveEmployee(@Valid @RequestBody Mono<CreateEmployeeRequest> requestMono) {
+    public Mono<ResponseEntity<EmployeeResponse>> saveEmployee(@Valid @RequestBody Mono<EmployeeRequest> requestMono) {
         return requestMono
                 .flatMap(this.employeeService::createEmployee)
                 .doOnNext(employeeResponse -> log.info("{}", employeeResponse))
@@ -55,9 +54,9 @@ public class EmployeeController {
 
     @PutMapping(path = "/{employeeId}")
     public Mono<ResponseEntity<EmployeeResponse>> updateEmployee(@PathVariable Long employeeId,
-                                                                 @Valid @RequestBody Mono<Employee> requestMono) {
+                                                                 @Valid @RequestBody Mono<EmployeeRequest> requestMono) {
         return requestMono
-                .flatMap(employee -> this.employeeService.updateEmployee(employeeId, employee))
+                .flatMap(employeeRequest -> this.employeeService.updateEmployee(employeeId, employeeRequest))
                 .doOnNext(employeeResponse -> log.info("{}", employeeResponse))
                 .map(ResponseEntity::ok);
     }

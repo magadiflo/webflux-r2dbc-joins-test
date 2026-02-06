@@ -1,8 +1,7 @@
 package dev.magadiflo.app.service;
 
-import dev.magadiflo.app.dto.CreateEmployeeRequest;
+import dev.magadiflo.app.dto.EmployeeRequest;
 import dev.magadiflo.app.dto.EmployeeResponse;
-import dev.magadiflo.app.entity.Employee;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -11,9 +10,9 @@ public interface EmployeeService {
 
     Mono<EmployeeResponse> showEmployee(Long employeeId);
 
-    Mono<EmployeeResponse> createEmployee(CreateEmployeeRequest request);
+    Mono<EmployeeResponse> createEmployee(EmployeeRequest request);
 
-    Mono<EmployeeResponse> updateEmployee(Long employeeId, Employee employee);
+    Mono<EmployeeResponse> updateEmployee(Long employeeId, EmployeeRequest employeeRequest);
 
     Mono<Void> deleteEmployee(Long employeeId);
 }
