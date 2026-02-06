@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Objects;
+
 @Slf4j
 @RequiredArgsConstructor
 @Service
@@ -59,15 +61,17 @@ public class DepartmentServiceImpl implements DepartmentService {
 
     @Override
     @Transactional
-    public Mono<DepartmentResponse> updateDepartment(Long departmentId, Department department) {
+    public Mono<DepartmentResponse> updateDepartment(Long departmentId, DepartmentRequest departmentRequest) {
         return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
                 .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
                 .map(departmentDB -> {
-                    departmentDB.setName(department.getName());
-                    if (department.getManager().isPresent()) {
-                        departmentDB.setManager(department.getManager().get());
+                    departmentDB.setName(departmentRequest.name());
+                    if (Objects.nonNull(departmentRequest.manager())) {
+                        departmentDB.setManager(this.employeeMapper.toEmployee(departmentRequest.manager()));
                     }
-                    departmentDB.setEmployees(department.getEmployees());
+                    departmentDB.setEmployees(departmentRequest.employees().stream()
+                            .map(this.employeeMapper::toEmployee)
+                            .toList());
                     return departmentDB;
                 })
                 .flatMap(this.departmentDao::save)

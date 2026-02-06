@@ -3,7 +3,6 @@ package dev.magadiflo.app.service;
 import dev.magadiflo.app.dto.DepartmentRequest;
 import dev.magadiflo.app.dto.DepartmentResponse;
 import dev.magadiflo.app.dto.EmployeeResponse;
-import dev.magadiflo.app.entity.Department;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -16,7 +15,7 @@ public interface DepartmentService {
 
     Mono<DepartmentResponse> createDepartment(DepartmentRequest request);
 
-    Mono<DepartmentResponse> updateDepartment(Long departmentId, Department department);
+    Mono<DepartmentResponse> updateDepartment(Long departmentId, DepartmentRequest departmentRequest);
 
     Mono<Void> deleteDepartment(Long departmentId);
 

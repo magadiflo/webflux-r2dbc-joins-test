@@ -3,7 +3,6 @@ package dev.magadiflo.app.controller;
 import dev.magadiflo.app.dto.DepartmentRequest;
 import dev.magadiflo.app.dto.DepartmentResponse;
 import dev.magadiflo.app.dto.EmployeeResponse;
-import dev.magadiflo.app.entity.Department;
 import dev.magadiflo.app.service.DepartmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -71,8 +70,8 @@ public class DepartmentController {
 
     @PutMapping(path = "/{departmentId}")
     public Mono<ResponseEntity<DepartmentResponse>> updateDepartment(@PathVariable Long departmentId,
-                                                                     @RequestBody Department department) {
-        return this.departmentService.updateDepartment(departmentId, department)
+                                                                     @RequestBody DepartmentRequest departmentRequest) {
+        return this.departmentService.updateDepartment(departmentId, departmentRequest)
                 .doOnNext(departmentResponse -> log.info("{}", departmentResponse))
                 .map(ResponseEntity::ok);
     }
