@@ -1,16 +1,18 @@
 package dev.magadiflo.app.integration.dao;
 
 import dev.magadiflo.app.dao.DepartmentDao;
+import dev.magadiflo.app.dao.impl.DepartmentDaoImpl;
 import dev.magadiflo.app.entity.Department;
+import dev.magadiflo.app.entity.Employee;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.data.r2dbc.DataR2dbcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.r2dbc.core.DatabaseClient;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -18,10 +20,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@Import(DepartmentDaoImpl.class)
+@DataR2dbcTest
 class DepartmentDaoTest {
 
     @Autowired
@@ -51,13 +55,15 @@ class DepartmentDaoTest {
 
     @Test
     void shouldFindAllDepartments() {
-        Flux<Department> departmentFlux = this.departmentDao.findAll();
+        Mono<List<Department>> collectList = this.departmentDao.findAll().collectList();
 
-        StepVerifier.create(departmentFlux)
-                .expectNextMatches(department -> department.getName().equals("Tecnología"))
-                .expectNextMatches(department -> department.getName().equals("Ventas"))
-                .expectNextMatches(department -> department.getName().equals("Legal"))
-                .expectNextMatches(department -> department.getName().equals("Soporte"))
+        StepVerifier.create(collectList)
+                .assertNext(departments -> {
+                    assertThat(departments)
+                            .hasSize(4)
+                            .extracting(Department::getName)
+                            .containsExactly("Tecnología", "Ventas", "Legal", "Soporte");
+                })
                 .verifyComplete();
     }
 
@@ -74,6 +80,8 @@ class DepartmentDaoTest {
                 .assertNext(department -> {
                     assertThat(department.getId()).isEqualTo(departmentId);
                     assertThat(department.getName()).isEqualTo("Tecnología");
+                    assertThat(department.getManager()).isEmpty();
+                    assertThat(department.getEmployees()).isEmpty();
                 })
                 .verifyComplete();
     }
@@ -88,6 +96,35 @@ class DepartmentDaoTest {
 
         // then
         StepVerifier.create(departmentMono)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReturnDepartmentWithManagerAndEmployees() {
+        // given
+        Long departmentId = 1L;
+
+        // when
+        Mono<Department> departmentMono = this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId);
+
+        // then
+        StepVerifier.create(departmentMono)
+                .assertNext(department -> {
+                    assertThat(department.getId()).isEqualTo(departmentId);
+                    assertThat(department.getName()).isEqualTo("Tecnología");
+                    assertThat(department.getManager())
+                            .hasValueSatisfying(manager -> {
+                                assertThat(manager.getId()).isEqualTo(1L);
+                                assertThat(manager.getFirstName()).isEqualTo("Martín");
+                                assertThat(manager.getLastName()).isEqualTo("Díaz");
+                                assertThat(manager.getPosition()).isEqualTo("Gerente");
+                                assertThat(manager.getFullTime()).isTrue();
+                            });
+                    assertThat(department.getEmployees())
+                            .hasSize(2)
+                            .map(Employee::getId)
+                            .containsExactlyInAnyOrder(2L, 3L);
+                })
                 .verifyComplete();
     }
 }
