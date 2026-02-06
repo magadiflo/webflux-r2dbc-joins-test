@@ -214,4 +214,75 @@ class DepartmentDaoTest {
                 })
                 .verifyComplete();
     }
+
+    @Test
+    void shouldUpdateDepartmentWithManagerAndEmployees() {
+        // given
+        Employee managerToUpdate = Employee.builder()
+                .id(2L)
+                .firstName("Katherine")
+                .lastName("Fernández")
+                .position("Desarrollador")
+                .fullTime(false)
+                .build();
+
+        List<Employee> employeesToUpdate = List.of(
+                // Empleado existente en BD
+                Employee.builder()
+                        .id(7L)
+                        .firstName("Jorge")
+                        .lastName("Gayoso")
+                        .position("Developer")
+                        .fullTime(true)
+                        .build(),
+
+                // Nuevo empleado a registrar
+                Employee.builder()
+                        .firstName("Susana")
+                        .lastName("Alvarado")
+                        .position("Developer")
+                        .fullTime(true)
+                        .build()
+        );
+
+        Department departmentToUpdate = Department.builder()
+                .id(2L)
+                .name("Sales")
+                .manager(managerToUpdate)
+                .employees(employeesToUpdate)
+                .build();
+
+        // when
+        Mono<Department> departmentMono = this.departmentDao.save(departmentToUpdate);
+
+        // then
+        StepVerifier.create(departmentMono)
+                .assertNext(department -> {
+                    assertThat(department.getId()).isEqualTo(2L);
+                    assertThat(department.getName()).isEqualTo("Sales");
+
+                    assertThat(department.getManager())
+                            .hasValueSatisfying(manager -> {
+                                assertThat(manager.getId()).isNotNull();
+                                assertThat(manager.getFirstName()).isEqualTo("Katherine");
+                                assertThat(manager.getLastName()).isEqualTo("Fernández");
+                                assertThat(manager.getPosition()).isEqualTo("Desarrollador");
+                                assertThat(manager.getFullTime()).isFalse();
+                            });
+
+                    assertThat(department.getEmployees())
+                            .hasSize(2)
+                            .allSatisfy(employee -> {
+                                assertThat(employee.getId()).isNotNull();
+                                assertThat(employee.getPosition()).isEqualTo("Developer");
+                            });
+                    assertThat(department.getEmployees())
+                            .extracting(Employee::getId)
+                            .doesNotHaveDuplicates();
+                    assertThat(department.getEmployees())
+                            .map(Employee::getFirstName)
+                            .containsExactlyInAnyOrder("Jorge", "Susana");
+                })
+                .verifyComplete();
+    }
 }
