@@ -1,7 +1,7 @@
 package dev.magadiflo.app.service.impl;
 
 import dev.magadiflo.app.dao.DepartmentDao;
-import dev.magadiflo.app.dto.CreateDepartmentRequest;
+import dev.magadiflo.app.dto.DepartmentRequest;
 import dev.magadiflo.app.dto.DepartmentResponse;
 import dev.magadiflo.app.dto.EmployeeResponse;
 import dev.magadiflo.app.entity.Department;
@@ -49,7 +49,7 @@ public class DepartmentServiceImpl implements DepartmentService {
 
     @Override
     @Transactional
-    public Mono<DepartmentResponse> createDepartment(CreateDepartmentRequest request) {
+    public Mono<DepartmentResponse> createDepartment(DepartmentRequest request) {
         return this.departmentDao.findByName(request.name())
                 .flatMap(department -> Mono.<Department>error(new DepartmentAlreadyExistsException(department.getName())))
                 .switchIfEmpty(Mono.fromSupplier(() -> this.departmentMapper.toDepartment(request)))

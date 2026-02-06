@@ -1,6 +1,6 @@
 package dev.magadiflo.app.service;
 
-import dev.magadiflo.app.dto.CreateDepartmentRequest;
+import dev.magadiflo.app.dto.DepartmentRequest;
 import dev.magadiflo.app.dto.DepartmentResponse;
 import dev.magadiflo.app.dto.EmployeeResponse;
 import dev.magadiflo.app.entity.Department;
@@ -14,7 +14,7 @@ public interface DepartmentService {
 
     Mono<DepartmentResponse> showDepartmentWithManagerAndEmployees(Long departmentId);
 
-    Mono<DepartmentResponse> createDepartment(CreateDepartmentRequest request);
+    Mono<DepartmentResponse> createDepartment(DepartmentRequest request);
 
     Mono<DepartmentResponse> updateDepartment(Long departmentId, Department department);
 

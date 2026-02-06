@@ -1,6 +1,6 @@
 package dev.magadiflo.app.mapper;
 
-import dev.magadiflo.app.dto.CreateDepartmentRequest;
+import dev.magadiflo.app.dto.DepartmentRequest;
 import dev.magadiflo.app.dto.DepartmentResponse;
 import dev.magadiflo.app.entity.Department;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +35,7 @@ public class DepartmentMapper {
         );
     }
 
-    public Department toDepartment(CreateDepartmentRequest request) {
+    public Department toDepartment(DepartmentRequest request) {
         return Department.builder()
                 .name(request.name())
                 .build();

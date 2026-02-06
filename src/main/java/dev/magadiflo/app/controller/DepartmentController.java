@@ -1,6 +1,6 @@
 package dev.magadiflo.app.controller;
 
-import dev.magadiflo.app.dto.CreateDepartmentRequest;
+import dev.magadiflo.app.dto.DepartmentRequest;
 import dev.magadiflo.app.dto.DepartmentResponse;
 import dev.magadiflo.app.dto.EmployeeResponse;
 import dev.magadiflo.app.entity.Department;
@@ -61,7 +61,7 @@ public class DepartmentController {
     }
 
     @PostMapping
-    public Mono<ResponseEntity<DepartmentResponse>> saveDepartment(@Valid @RequestBody CreateDepartmentRequest request) {
+    public Mono<ResponseEntity<DepartmentResponse>> saveDepartment(@Valid @RequestBody DepartmentRequest request) {
         return this.departmentService.createDepartment(request)
                 .doOnNext(departmentResponse -> log.info("{}", departmentResponse))
                 .map(departmentResponse ->
