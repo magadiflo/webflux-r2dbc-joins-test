@@ -23,11 +23,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Import(DepartmentDaoImpl.class)
 @DataR2dbcTest
+@Import(DepartmentDaoImpl.class)
 @ContextConfiguration(classes = TestDatabaseConfig.class)
 class DepartmentDaoTest {
 
@@ -58,9 +59,11 @@ class DepartmentDaoTest {
 
     @Test
     void shouldFindAllDepartments() {
-        Mono<List<Department>> collectList = this.departmentDao.findAll().collectList();
+        // when
+        Mono<List<Department>> result = this.departmentDao.findAll().collectList();
 
-        StepVerifier.create(collectList)
+        // then
+        StepVerifier.create(result)
                 .assertNext(departments -> {
                     assertThat(departments)
                             .hasSize(4)
@@ -81,10 +84,9 @@ class DepartmentDaoTest {
         // then
         StepVerifier.create(departmentMono)
                 .assertNext(department -> {
-                    assertThat(department.getId()).isEqualTo(departmentId);
-                    assertThat(department.getName()).isEqualTo("Tecnología");
-                    assertThat(department.getManager()).isEmpty();
-                    assertThat(department.getEmployees()).isEmpty();
+                    assertThat(department)
+                            .extracting(Department::getId, Department::getName, Department::getManager, Department::getEmployees)
+                            .containsExactly(departmentId, "Tecnología", Optional.empty(), List.of());
                 })
                 .verifyComplete();
     }
@@ -293,7 +295,7 @@ class DepartmentDaoTest {
         Department departmentToDelete = Department.builder().id(departmentId).build();
 
         // when
-        Mono<Void> deleteMono  = this.departmentDao.delete(departmentToDelete);
+        Mono<Void> deleteMono = this.departmentDao.delete(departmentToDelete);
 
         // then
         StepVerifier.create(deleteMono)

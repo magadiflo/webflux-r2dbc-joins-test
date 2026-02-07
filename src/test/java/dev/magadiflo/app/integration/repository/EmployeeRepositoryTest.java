@@ -3,7 +3,6 @@ package dev.magadiflo.app.integration.repository;
 import dev.magadiflo.app.config.TestDatabaseConfig;
 import dev.magadiflo.app.entity.Employee;
 import dev.magadiflo.app.repository.EmployeeRepository;
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,7 +24,6 @@ import java.nio.file.Paths;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Slf4j
 @DataR2dbcTest
 @ContextConfiguration(classes = TestDatabaseConfig.class)
 class EmployeeRepositoryTest {
