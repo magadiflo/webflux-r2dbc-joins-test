@@ -14,6 +14,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.test.context.ContextConfiguration;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -56,16 +57,27 @@ class EmployeeRepositoryTest {
 
     @Test
     void shouldFindAllEmployees() {
-        this.employeeRepository.findAll()
-                .as(StepVerifier::create)
+        // given: IMPLÍCITO - Los datos vienen del @BeforeEach
+
+        // when
+        Flux<Employee> result = this.employeeRepository.findAll();
+
+        // then
+        StepVerifier.create(result)
                 .expectNextCount(7)
                 .verifyComplete();
     }
 
     @Test
     void shouldFindAnEmployee() {
-        this.employeeRepository.findById(6L)
-                .as(StepVerifier::create)
+        // given
+        Long employeeId = 6L;
+
+        // when
+        Mono<Employee> result = this.employeeRepository.findById(employeeId);
+
+        // then
+        StepVerifier.create(result)
                 .consumeNextWith(employee -> {
                     assertThat(employee)
                             .extracting("id", "firstName", "lastName", "position", "fullTime")
@@ -76,39 +88,74 @@ class EmployeeRepositoryTest {
 
     @Test
     void shouldDoesNotReturnEmployeeWithIdThatDoesNotExist() {
-        this.employeeRepository.findById(8L)
-                .as(StepVerifier::create)
-                .expectNextCount(0)
+        // given
+        Long employeeId = 8L;
+
+        // when
+        Mono<Employee> result = this.employeeRepository.findById(employeeId);
+
+        // then
+        StepVerifier.create(result)
                 .verifyComplete();
     }
 
     @Test
     void shouldFindAllEmployeesByPosition() {
-        this.employeeRepository.findByPosition("Gerente")
-                .as(StepVerifier::create)
+        // given
+        String position = "Gerente";
+
+        // when
+        Flux<Employee> result = this.employeeRepository.findByPosition(position);
+
+        // then
+        StepVerifier.create(result)
                 .expectNextMatches(employee -> employee.getId().equals(1L))
                 .expectNextMatches(employee -> employee.getId().equals(4L))
                 .verifyComplete();
     }
 
     @Test
+    void shouldReturnEmptyWhenFindingByNonExistentPosition() {
+        // given
+        String position = "CEO";
+
+        // when
+        Flux<Employee> result = this.employeeRepository.findByPosition(position);
+
+        // then
+        StepVerifier.create(result)
+                .verifyComplete();
+    }
+
+    @Test
     void shouldFindAllEmployeeByFullTime() {
-        this.employeeRepository.findByFullTime(false)
-                .as(StepVerifier::create)
+        // given
+        boolean isFullTime = false;
+
+        // when
+        Flux<Employee> result = this.employeeRepository.findByFullTime(isFullTime);
+
+        // then
+        StepVerifier.create(result)
                 .assertNext(employee -> {
-                    assertThat(employee.getId()).isEqualTo(3L);
-                    assertThat(employee.getFirstName()).isEqualTo("Vanessa");
-                    assertThat(employee.getLastName()).isEqualTo("Bello");
-                    assertThat(employee.getPosition()).isEqualTo("Diseñador");
-                    assertThat(employee.getFullTime()).isFalse();
+                    assertThat(employee)
+                            .extracting("id", "firstName", "lastName", "position", "fullTime")
+                            .containsExactly(3L, "Vanessa", "Bello", "Diseñador", false);
                 })
                 .verifyComplete();
     }
 
     @Test
     void shouldFindAllEmployeesByPositionAndFullTime() {
-        this.employeeRepository.findByPositionAndFullTime("Teacher", true)
-                .as(StepVerifier::create)
+        // given
+        String position = "Teacher";
+        boolean isFullTime = true;
+
+        // when
+        Flux<Employee> result = this.employeeRepository.findByPositionAndFullTime(position, isFullTime);
+
+        // then
+        StepVerifier.create(result)
                 .consumeNextWith(employee -> assertThat(employee.getId()).isEqualTo(6L))
                 .consumeNextWith(employee -> assertThat(employee.getId()).isEqualTo(7L))
                 .verifyComplete();
@@ -116,8 +163,14 @@ class EmployeeRepositoryTest {
 
     @Test
     void shouldFindAllEmployeesByFirstName() {
-        this.employeeRepository.findByFirstName("Katherine")
-                .as(StepVerifier::create)
+        // given
+        String firstName = "Katherine";
+
+        // when
+        Flux<Employee> result = this.employeeRepository.findByFirstName(firstName);
+
+        // then
+        StepVerifier.create(result)
                 .assertNext(employee -> assertThat(employee.getId()).isEqualTo(2L))
                 .verifyComplete();
     }
@@ -147,16 +200,17 @@ class EmployeeRepositoryTest {
 
     @Test
     void shouldDeleteAnEmployee() {
-        this.employeeRepository.findById(6L)
-                .as(StepVerifier::create)
-                .expectNextCount(1)
+        // given
+        Long employeeId = 6L;
+
+        // when
+        Mono<Void> result = this.employeeRepository.deleteById(employeeId);
+
+        // then
+        StepVerifier.create(result)
                 .verifyComplete();
 
-        this.employeeRepository.deleteById(6L)
-                .as(StepVerifier::create)
-                .verifyComplete();
-
-        this.employeeRepository.findById(6L)
+        this.employeeRepository.findById(employeeId)
                 .as(StepVerifier::create)
                 .verifyComplete();
     }
