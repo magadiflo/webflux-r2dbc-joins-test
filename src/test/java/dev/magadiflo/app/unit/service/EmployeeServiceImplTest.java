@@ -1,5 +1,6 @@
 package dev.magadiflo.app.unit.service;
 
+import dev.magadiflo.app.dto.EmployeeRequest;
 import dev.magadiflo.app.dto.EmployeeResponse;
 import dev.magadiflo.app.entity.Employee;
 import dev.magadiflo.app.exception.EmployeeNotFoundException;
@@ -18,13 +19,10 @@ import reactor.test.StepVerifier;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class EmployeeServiceImplTest {
@@ -223,5 +221,53 @@ class EmployeeServiceImplTest {
 
         verify(this.employeeRepository).findById(nonExistentId);
         verifyNoInteractions(this.employeeMapper);
+    }
+
+    /**
+     * Sobre el thenAnswer
+     * <p>
+     * 1. invocation.getArgument(0) captura el primer argumento (índice 0) del método mockeado.
+     * 2. Si hubiera múltiples argumentos: getArgument(0), getArgument(1), etc.
+     * 3. Puedes modificar el objeto capturado (como agregarle un ID).
+     * 4. Retornas lo que necesites (el objeto modificado, una transformación, etc.).
+     */
+    @Test
+    void shouldCreateEmployee() {
+        // given
+        EmployeeRequest request = EmployeeFixture.createDefaultRequest();
+
+        // Mock del repository.save():
+        // Captura el Employee que se intenta guardar, le asigna un ID (simulando auto-generación de BD),
+        // y retorna el Employee guardado envuelto en Mono
+        when(this.employeeRepository.save(any(Employee.class)))
+                .thenAnswer(invocation -> {
+                    Employee savedEmployee = invocation.getArgument(0); // Captura el argumento en posición 0
+                    savedEmployee.setId(1L);  // Simula la asignación de ID por la BD
+                    return Mono.just(savedEmployee);
+                });
+
+        // Mock del mapper.toEmployeeResponse():
+        // Captura el Employee guardado y lo transforma a EmployeeResponse usando el fixture
+        when(this.employeeMapper.toEmployeeResponse(any(Employee.class)))
+                .thenAnswer(invocation -> {
+                    Employee savedEmployee = invocation.getArgument(0); // Captura el Employee guardado
+                    return EmployeeFixture.toEmployeeResponse(savedEmployee); // Transforma a Response
+                });
+
+        // when
+        Mono<EmployeeResponse> result = this.employeeService.createEmployee(request);
+
+        // then
+        StepVerifier.create(result)
+                .assertNext(employeeResponse -> {
+                    assertThat(employeeResponse.id()).isNotNull(); // Verifica que se asignó el ID
+                    assertThat(employeeResponse.firstName()).isEqualTo(request.firstName());
+                    assertThat(employeeResponse.lastName()).isEqualTo(request.lastName());
+                    assertThat(employeeResponse.position()).isEqualTo(request.position());
+                    assertThat(employeeResponse.fullTime()).isEqualTo(request.fullTime());
+                })
+                .verifyComplete();
+        verify(this.employeeRepository).save(any(Employee.class));
+        verify(this.employeeMapper).toEmployeeResponse(any(Employee.class));
     }
 }

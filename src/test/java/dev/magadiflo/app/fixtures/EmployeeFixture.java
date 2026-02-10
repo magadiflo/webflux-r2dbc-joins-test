@@ -1,5 +1,6 @@
 package dev.magadiflo.app.fixtures;
 
+import dev.magadiflo.app.dto.EmployeeRequest;
 import dev.magadiflo.app.dto.EmployeeResponse;
 import dev.magadiflo.app.entity.Employee;
 import lombok.experimental.UtilityClass;
@@ -49,6 +50,24 @@ public class EmployeeFixture {
     public static Employee createDesigner(Long id, boolean fullTime) {
         return EmployeeFixture.createEmployee(id, "FirstName-designer-" + id,
                 "LastName-designer-" + id, "Designer", fullTime);
+    }
+
+    public static EmployeeRequest createEmployeeRequest(String firstName, String lastName,
+                                                        String position, boolean fullTime) {
+        return new EmployeeRequest(null, firstName, lastName, position, fullTime);
+    }
+
+    public static EmployeeRequest createEmployeeRequest(Long id, String firstName, String lastName,
+                                                        String position, boolean fullTime) {
+        return new EmployeeRequest(id, firstName, lastName, position, fullTime);
+    }
+
+    public static EmployeeRequest createDefaultRequest() {
+        return EmployeeFixture.createEmployeeRequest("Lesly", "Águila", "Developer", true);
+    }
+
+    public static EmployeeRequest createUpdateRequest() {
+        return EmployeeFixture.createEmployeeRequest("Updated", "Name", "Senior Developer", false);
     }
 
     public static EmployeeResponse toEmployeeResponse(Employee employee) {
