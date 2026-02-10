@@ -130,6 +130,38 @@ class EmployeeServiceImplTest {
     }
 
     @Test
+    void shouldReturnEmployeesWhenFilteredByPositionAndFullTime() {
+        // given
+        String position = "Developer";
+        Boolean isFullTime = true;
+        Employee employee1 = EmployeeFixture.createDeveloper(1L, true);
+        Employee employee2 = EmployeeFixture.createDeveloper(2L, true);
+
+        List<Employee> filteredEmployees = List.of(employee1, employee2);
+
+        EmployeeResponse response1 = EmployeeFixture.toEmployeeResponse(employee1);
+        EmployeeResponse response2 = EmployeeFixture.toEmployeeResponse(employee2);
+
+        when(this.employeeRepository.findByPositionAndFullTime(position, isFullTime))
+                .thenReturn(Flux.fromIterable(filteredEmployees));
+        when(this.employeeMapper.toEmployeeResponse(employee1)).thenReturn(response1);
+        when(this.employeeMapper.toEmployeeResponse(employee2)).thenReturn(response2);
+
+        // when
+        Flux<EmployeeResponse> result = this.employeeService.getAllEmployees(position, isFullTime);
+
+        // then
+        StepVerifier.create(result)
+                .expectNext(response1, response2)
+                .verifyComplete();
+
+        verify(this.employeeRepository).findByPositionAndFullTime(position, isFullTime);
+        verify(this.employeeRepository, never()).findAll();
+        verify(this.employeeRepository, never()).findByPosition(any());
+        verify(this.employeeRepository, never()).findByFullTime(any());
+    }
+
+    @Test
     void shouldFindEmployeeById() {
         // given
         Long employeeId = 1L;
