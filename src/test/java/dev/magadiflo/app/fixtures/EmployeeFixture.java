@@ -30,6 +30,27 @@ public class EmployeeFixture {
                 .build();
     }
 
+    public static Employee createEmployee(Long id, String firstName, String lastName,
+                                          String position, boolean fullTime) {
+        return Employee.builder()
+                .id(id)
+                .firstName(firstName)
+                .lastName(lastName)
+                .position(position)
+                .fullTime(fullTime)
+                .build();
+    }
+
+    public static Employee createDeveloper(Long id, boolean fullTime) {
+        return EmployeeFixture.createEmployee(id, "FirstName-dev-" + id,
+                "LastName-dev-" + id, "Developer", fullTime);
+    }
+
+    public static Employee createDesigner(Long id, boolean fullTime) {
+        return EmployeeFixture.createEmployee(id, "FirstName-designer-" + id,
+                "LastName-designer-" + id, "Designer", fullTime);
+    }
+
     public static EmployeeResponse toEmployeeResponse(Employee employee) {
         return new EmployeeResponse(
                 employee.getId(),
