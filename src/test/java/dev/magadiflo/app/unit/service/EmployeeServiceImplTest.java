@@ -99,6 +99,37 @@ class EmployeeServiceImplTest {
     }
 
     @Test
+    void shouldReturnEmployeesWhenFilteredByFullTimeOnly() {
+        // given
+        Boolean isFullTime = true;
+        Employee employee1 = EmployeeFixture.createDeveloper(1L, true);
+        Employee employee2 = EmployeeFixture.createDesigner(2L, true);
+
+        List<Employee> fullTimeEmployees = List.of(employee1, employee2);
+
+        EmployeeResponse response1 = EmployeeFixture.toEmployeeResponse(employee1);
+        EmployeeResponse response2 = EmployeeFixture.toEmployeeResponse(employee2);
+
+        when(this.employeeRepository.findByFullTime(isFullTime))
+                .thenReturn(Flux.fromIterable(fullTimeEmployees));
+        when(this.employeeMapper.toEmployeeResponse(employee1)).thenReturn(response1);
+        when(this.employeeMapper.toEmployeeResponse(employee2)).thenReturn(response2);
+
+        // when
+        Flux<EmployeeResponse> result = this.employeeService.getAllEmployees(null, isFullTime);
+
+        // then
+        StepVerifier.create(result)
+                .expectNext(response1, response2)
+                .verifyComplete();
+
+        verify(this.employeeRepository).findByFullTime(isFullTime);
+        verify(this.employeeRepository, never()).findAll();
+        verify(this.employeeRepository, never()).findByPosition(any());
+        verify(this.employeeRepository, never()).findByPositionAndFullTime(any(), any());
+    }
+
+    @Test
     void shouldFindEmployeeById() {
         // given
         Long employeeId = 1L;
