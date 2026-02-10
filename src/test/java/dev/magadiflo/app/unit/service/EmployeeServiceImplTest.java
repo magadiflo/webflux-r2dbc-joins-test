@@ -19,10 +19,14 @@ import reactor.test.StepVerifier;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class EmployeeServiceImplTest {
@@ -180,7 +184,7 @@ class EmployeeServiceImplTest {
     void shouldFindEmployeeById() {
         // given
         Long employeeId = 1L;
-        Employee employee = EmployeeFixture.createDefaultEmployee();
+        Employee employee = EmployeeFixture.createDefaultEmployee(employeeId);
         EmployeeResponse employeeResponse = EmployeeFixture.toEmployeeResponse(employee);
 
         when(this.employeeRepository.findById(employeeId))
@@ -267,6 +271,49 @@ class EmployeeServiceImplTest {
                     assertThat(employeeResponse.fullTime()).isEqualTo(request.fullTime());
                 })
                 .verifyComplete();
+        verify(this.employeeRepository).save(any(Employee.class));
+        verify(this.employeeMapper).toEmployeeResponse(any(Employee.class));
+    }
+
+    @Test
+    void shouldUpdateEmployee() {
+        // given
+        Long employeeId = 1L;
+        EmployeeRequest request = EmployeeFixture.createUpdateRequest();
+        Employee existingEmployee = EmployeeFixture.createDefaultEmployee(employeeId);
+
+        // Mock: Retorna el employee existente cuando se busca por ID
+        when(this.employeeRepository.findById(employeeId))
+                .thenReturn(Mono.just(existingEmployee));
+
+        // Mock: El save() retorna el mismo objeto que recibe (simula comportamiento real de BD).
+        // El servicio ya modificó el objeto antes de llamar save(), por eso retornamos el argumento capturado
+        when(this.employeeRepository.save(any(Employee.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        // Mock: Transforma el Employee actualizado a EmployeeResponse usando el fixture
+        when(this.employeeMapper.toEmployeeResponse(any(Employee.class)))
+                .thenAnswer(invocation -> {
+                    Employee updatedEmployee = invocation.getArgument(0);
+                    return EmployeeFixture.toEmployeeResponse(updatedEmployee);
+                });
+
+        // when
+        Mono<EmployeeResponse> result = this.employeeService.updateEmployee(employeeId, request);
+
+        // then
+        StepVerifier.create(result)
+                .assertNext(employeeResponse -> {
+                    assertThat(employeeResponse.id())
+                            .isNotNull()
+                            .isEqualTo(employeeId);
+                    assertThat(employeeResponse.firstName()).isEqualTo(request.firstName());
+                    assertThat(employeeResponse.lastName()).isEqualTo(request.lastName());
+                    assertThat(employeeResponse.position()).isEqualTo(request.position());
+                    assertThat(employeeResponse.fullTime()).isEqualTo(request.fullTime());
+                })
+                .verifyComplete();
+        verify(this.employeeRepository).findById(employeeId);
         verify(this.employeeRepository).save(any(Employee.class));
         verify(this.employeeMapper).toEmployeeResponse(any(Employee.class));
     }

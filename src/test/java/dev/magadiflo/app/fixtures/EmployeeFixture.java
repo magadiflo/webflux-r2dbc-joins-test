@@ -17,8 +17,8 @@ public class EmployeeFixture {
                 .build();
     }
 
-    public static Employee createDefaultEmployee() {
-        return EmployeeFixture.createFullTimeEmployee(1L, "Lesly", "Águila");
+    public static Employee createDefaultEmployee(Long employeeId) {
+        return EmployeeFixture.createFullTimeEmployee(employeeId, "Lesly", "Águila");
     }
 
     public static Employee createPartTimeEmployee() {
