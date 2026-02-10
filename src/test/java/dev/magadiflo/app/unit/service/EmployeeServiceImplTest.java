@@ -35,7 +35,7 @@ class EmployeeServiceImplTest {
     private EmployeeServiceImpl employeeService;
 
     @Test
-    void shouldRetrieveAllEmployeesWhenPositionAndIsFullTimeAreNull() {
+    void shouldReturnAllEmployeesWhenNoFiltersProvided() {
         // given
         Employee employee1 = EmployeeFixture.createDeveloper(1L, true);
         Employee employee2 = EmployeeFixture.createDesigner(2L, false);
