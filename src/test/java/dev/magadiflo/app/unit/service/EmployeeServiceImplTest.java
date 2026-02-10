@@ -19,7 +19,8 @@ import reactor.test.StepVerifier;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -62,9 +63,9 @@ class EmployeeServiceImplTest {
                 .verifyComplete();
 
         verify(this.employeeRepository).findAll();
-        verify(this.employeeRepository, never()).findByPosition(any());
-        verify(this.employeeRepository, never()).findByFullTime(any());
-        verify(this.employeeRepository, never()).findByPositionAndFullTime(any(), any());
+        verify(this.employeeRepository, never()).findByPosition(anyString());
+        verify(this.employeeRepository, never()).findByFullTime(anyBoolean());
+        verify(this.employeeRepository, never()).findByPositionAndFullTime(anyString(), anyBoolean());
     }
 
     @Test
@@ -94,8 +95,8 @@ class EmployeeServiceImplTest {
 
         verify(this.employeeRepository).findByPosition(position);
         verify(this.employeeRepository, never()).findAll();
-        verify(this.employeeRepository, never()).findByFullTime(any());
-        verify(this.employeeRepository, never()).findByPositionAndFullTime(any(), any());
+        verify(this.employeeRepository, never()).findByFullTime(anyBoolean());
+        verify(this.employeeRepository, never()).findByPositionAndFullTime(anyString(), anyBoolean());
     }
 
     @Test
@@ -125,8 +126,8 @@ class EmployeeServiceImplTest {
 
         verify(this.employeeRepository).findByFullTime(isFullTime);
         verify(this.employeeRepository, never()).findAll();
-        verify(this.employeeRepository, never()).findByPosition(any());
-        verify(this.employeeRepository, never()).findByPositionAndFullTime(any(), any());
+        verify(this.employeeRepository, never()).findByPosition(anyString());
+        verify(this.employeeRepository, never()).findByPositionAndFullTime(anyString(), anyBoolean());
     }
 
     @Test
@@ -157,8 +158,8 @@ class EmployeeServiceImplTest {
 
         verify(this.employeeRepository).findByPositionAndFullTime(position, isFullTime);
         verify(this.employeeRepository, never()).findAll();
-        verify(this.employeeRepository, never()).findByPosition(any());
-        verify(this.employeeRepository, never()).findByFullTime(any());
+        verify(this.employeeRepository, never()).findByPosition(anyString());
+        verify(this.employeeRepository, never()).findByFullTime(anyBoolean());
     }
 
     @Test
