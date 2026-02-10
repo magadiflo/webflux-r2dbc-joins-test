@@ -162,6 +162,22 @@ class EmployeeServiceImplTest {
     }
 
     @Test
+    void shouldReturnEmptyFluxWhenNoEmployeesFound() {
+        // given
+        when(this.employeeRepository.findAll()).thenReturn(Flux.empty());
+
+        // when
+        Flux<EmployeeResponse> result = this.employeeService.getAllEmployees(null, null);
+
+        // then
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(this.employeeRepository).findAll();
+        verifyNoInteractions(this.employeeMapper);
+    }
+
+    @Test
     void shouldFindEmployeeById() {
         // given
         Long employeeId = 1L;
