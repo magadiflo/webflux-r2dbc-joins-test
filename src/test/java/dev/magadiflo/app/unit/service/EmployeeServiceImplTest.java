@@ -365,4 +365,28 @@ class EmployeeServiceImplTest {
         verify(this.employeeRepository).findById(employeeId);
         verify(this.employeeRepository).delete(existingEmployee);
     }
+
+    @Test
+    void shouldThrowEmployeeNotFoundExceptionWhenDeletingNonExistentEmployee() {
+        // given
+        Long nonExistentId = 999L;
+
+        when(this.employeeRepository.findById(nonExistentId))
+                .thenReturn(Mono.empty());
+
+        // when
+        Mono<Void> result = this.employeeService.deleteEmployee(nonExistentId);
+
+        // then
+        StepVerifier.create(result)
+                .expectErrorSatisfies(throwable -> {
+                    assertThat(throwable)
+                            .isExactlyInstanceOf(EmployeeNotFoundException.class)
+                            .hasMessage("El empleado con id [%d] no fue encontrado".formatted(nonExistentId));
+                })
+                .verify();
+
+        verify(this.employeeRepository).findById(nonExistentId);
+        verify(this.employeeRepository, never()).delete(any(Employee.class));
+    }
 }
