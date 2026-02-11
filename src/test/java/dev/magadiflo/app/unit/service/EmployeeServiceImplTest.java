@@ -317,4 +317,30 @@ class EmployeeServiceImplTest {
         verify(this.employeeRepository).save(any(Employee.class));
         verify(this.employeeMapper).toEmployeeResponse(any(Employee.class));
     }
+
+    @Test
+    void shouldThrowEmployeeNotFoundExceptionWhenUpdatingNonExistentEmployee() {
+        // given
+        Long nonExistentId = 999L;
+        EmployeeRequest updateRequest = EmployeeFixture.createUpdateRequest();
+
+        when(this.employeeRepository.findById(nonExistentId))
+                .thenReturn(Mono.empty());
+
+        // when
+        Mono<EmployeeResponse> result = this.employeeService.updateEmployee(nonExistentId, updateRequest);
+
+        // then
+        StepVerifier.create(result)
+                .expectErrorSatisfies(throwable -> {
+                    assertThat(throwable)
+                            .isExactlyInstanceOf(EmployeeNotFoundException.class)
+                            .hasMessage("El empleado con id [%d] no fue encontrado".formatted(nonExistentId));
+                })
+                .verify();
+
+        verify(this.employeeRepository).findById(nonExistentId);
+        verify(this.employeeRepository, never()).save(any(Employee.class));
+        verifyNoInteractions(this.employeeMapper);
+    }
 }
