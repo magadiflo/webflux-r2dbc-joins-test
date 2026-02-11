@@ -1,12 +1,19 @@
 package dev.magadiflo.app.unit.controller;
 
 import dev.magadiflo.app.controller.EmployeeController;
+import dev.magadiflo.app.dto.EmployeeResponse;
+import dev.magadiflo.app.fixtures.EmployeeFixture;
 import dev.magadiflo.app.service.EmployeeService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Flux;
+
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * 1️⃣ @WebFluxTest(EmployeeController.class)
@@ -40,8 +47,32 @@ class EmployeeControllerTest {
     @MockitoBean
     private EmployeeService employeeService;
 
+    // ===== GET /api/v1/employees/stream - findAllEmployees =====
     @Test
-    void shouldReturnAllEmployees() {
+    void shouldReturnAllEmployeesWhenNoFiltersProvided() {
+        // given
+        EmployeeResponse response1 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDeveloper(1L, true));
+        EmployeeResponse response2 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDesigner(2L, false));
+        EmployeeResponse response3 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDeveloper(3L, false));
 
+        when(this.employeeService.getAllEmployees(null, null))
+                .thenReturn(Flux.just(response1, response2, response3));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()      // Inicia una petición HTTP GET
+                .uri("/api/v1/employees/stream")                        // Define la URI del endpoint
+                .accept(MediaType.TEXT_EVENT_STREAM)    // Configuración de petición (Request Headers)
+                .exchange();                                                // Ejecuta la petición HTTP y obtiene la respuesta
+
+        //---- A partir de aquí, todas las líneas son VERIFICACIONES de la respuesta ----
+
+        // then
+        response.expectStatus().isOk()                                                            // Verifica que el status HTTP sea 200 OK
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM)  // Verifica que el servidor respondió (Response) con Content-Type: text/event-stream. "Compatible" significa que acepta variaciones como "text/event-stream;charset=UTF-8"
+                .expectBodyList(EmployeeResponse.class)                                // Espera una lista de objetos EmployeeResponse en el body
+                .hasSize(3)                                                                  // Verifica que la lista contiene exactamente 3 elementos
+                .contains(response1, response2, response3);                                       // Verifica que la lista contiene estos 3 objetos específicos
+
+        verify(this.employeeService).getAllEmployees(null, null);          // Verifica que el servicio mockeado fue llamado con estos parámetros
     }
 }
