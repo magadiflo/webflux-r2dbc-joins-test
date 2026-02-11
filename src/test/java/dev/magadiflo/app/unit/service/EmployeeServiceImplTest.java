@@ -343,4 +343,26 @@ class EmployeeServiceImplTest {
         verify(this.employeeRepository, never()).save(any(Employee.class));
         verifyNoInteractions(this.employeeMapper);
     }
+
+    @Test
+    void shouldDeleteEmployee() {
+        // given
+        Long employeeId = 1L;
+        Employee existingEmployee = EmployeeFixture.createDefaultEmployee(employeeId);
+
+        when(this.employeeRepository.findById(employeeId))
+                .thenReturn(Mono.just(existingEmployee));
+        when(this.employeeRepository.delete(existingEmployee))
+                .thenReturn(Mono.empty());
+
+        // when
+        Mono<Void> result = this.employeeService.deleteEmployee(employeeId);
+
+        // then
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(this.employeeRepository).findById(employeeId);
+        verify(this.employeeRepository).delete(existingEmployee);
+    }
 }
