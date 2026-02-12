@@ -49,7 +49,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     public Mono<EmployeeResponse> showEmployee(Long employeeId) {
         return this.employeeRepository.findById(employeeId)
-                .switchIfEmpty(Mono.error(new EmployeeNotFoundException(employeeId)))
+                .switchIfEmpty(Mono.error(() -> new EmployeeNotFoundException(employeeId)))
                 .map(this.employeeMapper::toEmployeeResponse);
     }
 
@@ -70,7 +70,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Transactional
     public Mono<EmployeeResponse> updateEmployee(Long employeeId, EmployeeRequest employeeRequest) {
         return this.employeeRepository.findById(employeeId)
-                .switchIfEmpty(Mono.error(new EmployeeNotFoundException(employeeId)))
+                .switchIfEmpty(Mono.error(() -> new EmployeeNotFoundException(employeeId)))
                 .map(employeeDB -> {
                     log.info("Empleado encontrado: {}", employeeDB);
                     employeeDB.setFirstName(employeeRequest.firstName());
@@ -88,7 +88,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Transactional
     public Mono<Void> deleteEmployee(Long employeeId) {
         return this.employeeRepository.findById(employeeId)
-                .switchIfEmpty(Mono.error(new EmployeeNotFoundException(employeeId)))
+                .switchIfEmpty(Mono.error(() -> new EmployeeNotFoundException(employeeId)))
                 .flatMap(this.employeeRepository::delete);
     }
 }
