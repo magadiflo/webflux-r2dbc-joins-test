@@ -402,5 +402,25 @@ class EmployeeControllerTest {
 
         verifyNoInteractions(this.employeeService);
     }
+
+    // ===== DELETE /api/v1/employees/{employeeId} - deleteEmployee =====
+    @Test
+    void shouldDeleteEmployee_whenValidIdProvided() {
+        // given
+        Long employeeId = 1L;
+        when(this.employeeService.deleteEmployee(employeeId))
+                .thenReturn(Mono.empty());
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.delete()
+                .uri("/api/v1/employees/{employeeId}", employeeId)
+                .exchange();
+
+        // then
+        response.expectStatus().isNoContent()
+                .expectBody().isEmpty();
+
+        verify(this.employeeService).deleteEmployee(employeeId);
+    }
 }
 
