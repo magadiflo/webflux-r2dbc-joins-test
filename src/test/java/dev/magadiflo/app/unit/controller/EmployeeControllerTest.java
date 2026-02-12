@@ -15,8 +15,6 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -344,7 +342,7 @@ class EmployeeControllerTest {
         Long nonExistentId = 999L;
         EmployeeRequest request = EmployeeFixture.createUpdateRequest();
 
-        when(this.employeeService.updateEmployee(eq(nonExistentId), any(EmployeeRequest.class)))
+        when(this.employeeService.updateEmployee(nonExistentId, request))
                 .thenReturn(Mono.error(() -> new EmployeeNotFoundException(nonExistentId)));
 
         // when
@@ -360,11 +358,7 @@ class EmployeeControllerTest {
                 .jsonPath("$.title").isEqualTo("Empleado no encontrado")
                 .jsonPath("$.detail").isEqualTo("El empleado con id [999] no fue encontrado");
 
-        // Usamos eq(nonExistentId) y any(EmployeeRequest.class) porque:
-        // - Queremos verificar que el servicio se invoca con el ID específico (eq asegura coincidencia exacta).
-        // - No nos importa la instancia exacta del EmployeeRequest, solo que sea de ese tipo (any evita que el test
-        // falle si el controlador crea una nueva instancia con los mismos datos).
-        verify(this.employeeService).updateEmployee(eq(nonExistentId), any(EmployeeRequest.class));
+        verify(this.employeeService).updateEmployee(nonExistentId, request);
     }
 
     @Test
@@ -421,6 +415,28 @@ class EmployeeControllerTest {
                 .expectBody().isEmpty();
 
         verify(this.employeeService).deleteEmployee(employeeId);
+    }
+
+    @Test
+    void shouldReturn404_whenDeletingNonExistentEmployee() {
+        // given
+        Long nonExistentId = 999L;
+
+        when(this.employeeService.deleteEmployee(nonExistentId))
+                .thenReturn(Mono.error(() -> new EmployeeNotFoundException(nonExistentId)));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.delete()
+                .uri("/api/v1/employees/{employeeId}", nonExistentId)
+                .exchange();
+
+        // then
+        response.expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.title").isEqualTo("Empleado no encontrado")
+                .jsonPath("$.detail").isEqualTo("El empleado con id [999] no fue encontrado");
+
+        verify(this.employeeService).deleteEmployee(nonExistentId);
     }
 }
 
