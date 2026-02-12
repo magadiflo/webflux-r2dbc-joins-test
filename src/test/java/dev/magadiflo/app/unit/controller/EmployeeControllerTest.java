@@ -2,6 +2,7 @@ package dev.magadiflo.app.unit.controller;
 
 import dev.magadiflo.app.controller.EmployeeController;
 import dev.magadiflo.app.dto.EmployeeResponse;
+import dev.magadiflo.app.exception.EmployeeNotFoundException;
 import dev.magadiflo.app.fixtures.EmployeeFixture;
 import dev.magadiflo.app.service.EmployeeService;
 import org.junit.jupiter.api.Test;
@@ -205,5 +206,26 @@ class EmployeeControllerTest {
                 .isEqualTo(employeeResponse);
 
         verify(this.employeeService).showEmployee(employeeId);
+    }
+
+    @Test
+    void shouldReturn404_whenEmployeeNotFound() {
+        // given
+        Long nonExistentId = 999L;
+        when(this.employeeService.showEmployee(nonExistentId))
+                .thenReturn(Mono.error(() -> new EmployeeNotFoundException(nonExistentId)));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri("/api/v1/employees/{employeeId}", nonExistentId)
+                .exchange();
+
+        // then
+        response.expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.title").isEqualTo("Empleado no encontrado")
+                .jsonPath("$.detail").isEqualTo("El empleado con id [999] no fue encontrado");
+
+        verify(this.employeeService).showEmployee(nonExistentId);
     }
 }
