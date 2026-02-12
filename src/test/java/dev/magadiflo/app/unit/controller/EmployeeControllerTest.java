@@ -366,5 +366,41 @@ class EmployeeControllerTest {
         // falle si el controlador crea una nueva instancia con los mismos datos).
         verify(this.employeeService).updateEmployee(eq(nonExistentId), any(EmployeeRequest.class));
     }
+
+    @Test
+    void shouldReturn400_whenUpdatingWithInvalidData() {
+        // given
+        Long employeeId = 1L;
+        EmployeeRequest invalidRequest = new EmployeeRequest(
+                null,
+                "",  // firstName vacío (violación @NotBlank)
+                "",  // lastName vacío
+                "  ",  // position vacío
+                null // fullTime null (violación @NotNull)
+        );
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.put()
+                .uri("/api/v1/employees/{employeeId}", employeeId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(invalidRequest)
+                .exchange();
+
+        // then
+        response.expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.title").isEqualTo("Error de validación de campos")
+                .jsonPath("$.status").isEqualTo(400)
+                .jsonPath("$.errors.firstName").exists()
+                .jsonPath("$.errors.firstName[0]").isEqualTo("must not be blank")
+                .jsonPath("$.errors.lastName").exists()
+                .jsonPath("$.errors.lastName[0]").isEqualTo("must not be blank")
+                .jsonPath("$.errors.position").exists()
+                .jsonPath("$.errors.position[0]").isEqualTo("must not be blank")
+                .jsonPath("$.errors.fullTime").exists()
+                .jsonPath("$.errors.fullTime[0]").isEqualTo("must not be null");
+
+        verifyNoInteractions(this.employeeService);
+    }
 }
 
