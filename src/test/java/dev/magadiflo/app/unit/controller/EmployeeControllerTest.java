@@ -301,4 +301,38 @@ class EmployeeControllerTest {
         // No debe llamarse al servicio si la validación falla
         verifyNoInteractions(this.employeeService);
     }
+
+    // ===== PUT /api/v1/employees/{employeeId} - updateEmployee =====
+    @Test
+    void shouldUpdateEmployee_whenValidDataProvided() {
+        // given
+        Long employeeId = 1L;
+        EmployeeRequest request = EmployeeFixture.createDefaultRequest();
+        EmployeeResponse employeeResponse = new EmployeeResponse(
+                employeeId,
+                request.firstName(),
+                request.lastName(),
+                request.position(),
+                request.fullTime()
+        );
+
+        when(this.employeeService.updateEmployee(employeeId, request))
+                .thenReturn(Mono.just(employeeResponse));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.put()
+                .uri("/api/v1/employees/{employeeId}", employeeId)
+                .contentType(MediaType.APPLICATION_JSON)      // Tipo de contenido del request (lo que envío)
+                .accept(MediaType.APPLICATION_JSON)  // Tipo de contenido esperado en la respuesta (Accept header)
+                .bodyValue(request)
+                .exchange();
+
+        // then
+        response.expectStatus().isOk()
+                .expectHeader().contentType(MediaType.APPLICATION_JSON)
+                .expectBody(EmployeeResponse.class)
+                .isEqualTo(employeeResponse);
+
+        verify(this.employeeService).updateEmployee(employeeId, request);
+    }
 }
