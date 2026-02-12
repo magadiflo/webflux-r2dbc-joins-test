@@ -49,7 +49,7 @@ class EmployeeControllerTest {
 
     // ===== GET /api/v1/employees/stream - findAllEmployees =====
     @Test
-    void shouldReturnAllEmployeesWhenNoFiltersProvided() {
+    void shouldReturnAllEmployees_whenNoFiltersProvided() {
         // given
         EmployeeResponse response1 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDeveloper(1L, true));
         EmployeeResponse response2 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDesigner(2L, false));
@@ -74,5 +74,33 @@ class EmployeeControllerTest {
                 .contains(response1, response2, response3);                                       // Verifica que la lista contiene estos 3 objetos específicos
 
         verify(this.employeeService).getAllEmployees(null, null);          // Verifica que el servicio mockeado fue llamado con estos parámetros
+    }
+
+    @Test
+    void shouldReturnFilteredEmployees_whenPositionProvided() {
+        // given
+        String position = "Developer";
+        EmployeeResponse response1 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDeveloper(1L, true));
+        EmployeeResponse response2 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDeveloper(2L, false));
+
+        when(this.employeeService.getAllEmployees(position, null))
+                .thenReturn(Flux.just(response1, response2));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/employees/stream")
+                        .queryParam("position", position)
+                        .build())
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .exchange();
+
+        // then
+        response.expectStatus().isOk()
+                .expectBodyList(EmployeeResponse.class)
+                .hasSize(2)
+                .contains(response1, response2);
+
+        verify(this.employeeService).getAllEmployees(position, null);
     }
 }
