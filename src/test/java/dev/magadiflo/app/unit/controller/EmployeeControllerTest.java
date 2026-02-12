@@ -103,4 +103,32 @@ class EmployeeControllerTest {
 
         verify(this.employeeService).getAllEmployees(position, null);
     }
+
+    @Test
+    void shouldReturnFilteredEmployees_whenFullTimeProvided() {
+        // given
+        boolean fullTime = true;
+        EmployeeResponse response1 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDeveloper(1L, true));
+        EmployeeResponse response2 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDesigner(2L, true));
+
+        when(this.employeeService.getAllEmployees(null, fullTime))
+                .thenReturn(Flux.just(response1, response2));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/employees/stream")
+                        .queryParam("fullTime", fullTime)
+                        .build())
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .exchange();
+
+        // then
+        response.expectStatus().isOk()
+                .expectBodyList(EmployeeResponse.class)
+                .hasSize(2)
+                .contains(response1, response2);
+
+        verify(this.employeeService).getAllEmployees(null, fullTime);
+    }
 }
