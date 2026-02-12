@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -179,5 +180,30 @@ class EmployeeControllerTest {
                 .hasSize(0);
 
         verify(this.employeeService).getAllEmployees(null, null);
+    }
+
+    // ===== GET /api/v1/employees/{employeeId} - findEmployee =====
+    @Test
+    void shouldReturnEmployee_whenValidIdProvided() {
+        // given
+        Long employeeId = 1L;
+        EmployeeResponse employeeResponse = EmployeeFixture
+                .toEmployeeResponse(EmployeeFixture.createDefaultEmployee(employeeId));
+
+        when(this.employeeService.showEmployee(employeeId))
+                .thenReturn(Mono.just(employeeResponse));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri("/api/v1/employees/{employeeId}", employeeId)
+                .exchange();
+
+        // then
+        response.expectStatus().isOk()
+                .expectHeader().contentType(MediaType.APPLICATION_JSON)
+                .expectBody(EmployeeResponse.class)
+                .isEqualTo(employeeResponse);
+
+        verify(this.employeeService).showEmployee(employeeId);
     }
 }
