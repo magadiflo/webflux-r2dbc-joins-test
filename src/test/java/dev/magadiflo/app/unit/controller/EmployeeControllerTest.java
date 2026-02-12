@@ -16,6 +16,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -261,5 +262,43 @@ class EmployeeControllerTest {
                 .isEqualTo(employeeResponse);
 
         verify(this.employeeService).createEmployee(request);
+    }
+
+    @Test
+    void shouldReturn400_whenCreatingEmployeeWithInvalidData() {
+        // given
+        EmployeeRequest invalidRequest = new EmployeeRequest(
+                null,
+                "",  // firstName vacío (violación @NotBlank)
+                "",  // lastName vacío
+                "  ",  // position vacío
+                null // fullTime null (violación @NotNull)
+        );
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.post()
+                .uri("/api/v1/employees")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .bodyValue(invalidRequest)
+                .exchange();
+
+        // then
+        response.expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.title").isEqualTo("Error de validación de campos")
+                .jsonPath("$.status").isEqualTo(400)
+                .jsonPath("$.errors.firstName").exists()
+                .jsonPath("$.errors.firstName[0]").isEqualTo("must not be blank")
+                .jsonPath("$.errors.lastName").exists()
+                .jsonPath("$.errors.lastName[0]").isEqualTo("must not be blank")
+                .jsonPath("$.errors.position").exists()
+                .jsonPath("$.errors.position[0]").isEqualTo("must not be blank")
+                .jsonPath("$.errors.fullTime").exists()
+                .jsonPath("$.errors.fullTime[0]").isEqualTo("must not be null");
+
+
+        // No debe llamarse al servicio si la validación falla
+        verifyNoInteractions(this.employeeService);
     }
 }
