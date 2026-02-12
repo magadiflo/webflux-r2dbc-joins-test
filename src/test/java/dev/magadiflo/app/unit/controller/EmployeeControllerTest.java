@@ -1,6 +1,7 @@
 package dev.magadiflo.app.unit.controller;
 
 import dev.magadiflo.app.controller.EmployeeController;
+import dev.magadiflo.app.dto.EmployeeRequest;
 import dev.magadiflo.app.dto.EmployeeResponse;
 import dev.magadiflo.app.exception.EmployeeNotFoundException;
 import dev.magadiflo.app.fixtures.EmployeeFixture;
@@ -63,7 +64,7 @@ class EmployeeControllerTest {
         // when
         WebTestClient.ResponseSpec response = this.webTestClient.get()      // Inicia una petición HTTP GET
                 .uri("/api/v1/employees/stream")                        // Define la URI del endpoint
-                .accept(MediaType.TEXT_EVENT_STREAM)    // Configuración de petición (Request Headers)
+                .accept(MediaType.TEXT_EVENT_STREAM)    // Tipo de contenido esperado en la respuesta (Accept header)
                 .exchange();                                                // Ejecuta la petición HTTP y obtiene la respuesta
 
         //---- A partir de aquí, todas las líneas son VERIFICACIONES de la respuesta ----
@@ -227,5 +228,38 @@ class EmployeeControllerTest {
                 .jsonPath("$.detail").isEqualTo("El empleado con id [999] no fue encontrado");
 
         verify(this.employeeService).showEmployee(nonExistentId);
+    }
+
+    // ===== POST /api/v1/employees - saveEmployee =====
+    @Test
+    void shouldCreateEmployee_whenValidRequestProvided() {
+        // given
+        EmployeeRequest request = EmployeeFixture.createDefaultRequest();
+        EmployeeResponse employeeResponse = new EmployeeResponse(
+                1L,
+                request.firstName(),
+                request.lastName(),
+                request.position(),
+                request.fullTime()
+        );
+
+        when(this.employeeService.createEmployee(request))
+                .thenReturn(Mono.just(employeeResponse));
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.post()
+                .uri("/api/v1/employees")
+                .contentType(MediaType.APPLICATION_JSON)      // Tipo de contenido del request (lo que envío)
+                .accept(MediaType.APPLICATION_JSON)  // Tipo de contenido esperado en la respuesta (Accept header)
+                .bodyValue(request)
+                .exchange();
+
+        // then
+        response.expectStatus().isCreated()
+                .expectHeader().contentType(MediaType.APPLICATION_JSON)
+                .expectBody(EmployeeResponse.class)
+                .isEqualTo(employeeResponse);
+
+        verify(this.employeeService).createEmployee(request);
     }
 }
