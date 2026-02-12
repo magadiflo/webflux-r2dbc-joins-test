@@ -160,4 +160,24 @@ class EmployeeControllerTest {
 
         verify(this.employeeService).getAllEmployees(position, fullTime);
     }
+
+    @Test
+    void shouldReturnEmptyStream_whenNoEmployeesFound() {
+        // given
+        when(this.employeeService.getAllEmployees(null, null))
+                .thenReturn(Flux.empty());
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri("/api/v1/employees/stream")
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .exchange();
+
+        // then
+        response.expectStatus().isOk()
+                .expectBodyList(EmployeeResponse.class)
+                .hasSize(0);
+
+        verify(this.employeeService).getAllEmployees(null, null);
+    }
 }
