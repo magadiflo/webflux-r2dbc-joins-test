@@ -424,25 +424,20 @@ class EmployeeControllerIntegrationTest {
                 .hasSize(6);  // 7 - 1 = 6
     }
 
-//    @Test
-//    void shouldReturn404_whenDeletingNonExistentEmployee() {
-//        // given
-//        Long nonExistentId = 999L;
-//
-//        when(this.employeeService.deleteEmployee(nonExistentId))
-//                .thenReturn(Mono.error(() -> new EmployeeNotFoundException(nonExistentId)));
-//
-//        // when
-//        WebTestClient.ResponseSpec response = this.webTestClient.delete()
-//                .uri("/api/v1/employees/{employeeId}", nonExistentId)
-//                .exchange();
-//
-//        // then
-//        response.expectStatus().isNotFound()
-//                .expectBody()
-//                .jsonPath("$.title").isEqualTo("Empleado no encontrado")
-//                .jsonPath("$.detail").isEqualTo("El empleado con id [999] no fue encontrado");
-//
-//        verify(this.employeeService).deleteEmployee(nonExistentId);
-//    }
+    @Test
+    void shouldReturn404_whenDeletingNonExistentEmployee() {
+        // given
+        Long nonExistentId = 999L;
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.delete()
+                .uri("/api/v1/employees/{employeeId}", nonExistentId)
+                .exchange();
+
+        // then
+        response.expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.title").isEqualTo("Empleado no encontrado")
+                .jsonPath("$.detail").isEqualTo("El empleado con id [999] no fue encontrado");
+    }
 }
