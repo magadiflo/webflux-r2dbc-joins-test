@@ -388,26 +388,42 @@ class EmployeeControllerIntegrationTest {
                 .jsonPath("$.errors.fullTime[0]").isEqualTo("must not be null");
     }
 
-//    // ===== DELETE /api/v1/employees/{employeeId} - deleteEmployee =====
-//    @Test
-//    void shouldDeleteEmployee_whenValidIdProvided() {
-//        // given
-//        Long employeeId = 1L;
-//        when(this.employeeService.deleteEmployee(employeeId))
-//                .thenReturn(Mono.empty());
-//
-//        // when
-//        WebTestClient.ResponseSpec response = this.webTestClient.delete()
-//                .uri("/api/v1/employees/{employeeId}", employeeId)
-//                .exchange();
-//
-//        // then
-//        response.expectStatus().isNoContent()
-//                .expectBody().isEmpty();
-//
-//        verify(this.employeeService).deleteEmployee(employeeId);
-//    }
-//
+    // ===== DELETE /api/v1/employees/{employeeId} - deleteEmployee =====
+    @Test
+    void shouldDeleteEmployee_whenValidIdProvided() {
+        // given
+        Long employeeId = 7L;
+
+        // Verifica que existe antes de eliminar
+        this.webTestClient.get()
+                .uri("/api/v1/employees/{employeeId}", employeeId)
+                .exchange()
+                .expectStatus().isOk();
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.delete()
+                .uri("/api/v1/employees/{employeeId}", employeeId)
+                .exchange();
+
+        // then
+        response.expectStatus().isNoContent()
+                .expectBody().isEmpty();
+
+        // Verifica que ya no existe
+        this.webTestClient.get()
+                .uri("/api/v1/employees/{employeeId}", employeeId)
+                .exchange()
+                .expectStatus().isNotFound();
+
+        // Verifica que se redujo el total
+        this.webTestClient.get()
+                .uri("/api/v1/employees/stream")
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .exchange()
+                .expectBodyList(EmployeeResponse.class)
+                .hasSize(6);  // 7 - 1 = 6
+    }
+
 //    @Test
 //    void shouldReturn404_whenDeletingNonExistentEmployee() {
 //        // given
