@@ -315,4 +315,56 @@ VALUES (1, 5),  -- Recursos Humanos - José Pérez
 - Esto es útil en entornos de desarrollo y test, pero en producción se recomienda usar scripts de migración
   (Flyway/Liquibase) en lugar de truncar datos.
 
+## ⚙️ Inicialización de scripts SQL
+
+Cada vez que la aplicación se inicia, se ejecutan los scripts definidos en el `@Bean` de configuración.
+Esto asegura que las tablas estén creadas y pobladas con datos iniciales, excepto cuando el perfil activo es `test`,
+lo cual evita interferencias con los datos de prueba.
+
+### 📌 Clase de configuración
+
+````java
+
+/**
+ * * @Profile("!test")
+ * <p>
+ * - Indica que un componente puede registrarse cuando uno o más perfiles específicos están activos.
+ * - Qué hace: Define cuándo un componente (bean, configuración) debe registrarse en el contexto de Spring.
+ * - En este caso: Se registra cuando el perfil activo NO es "test".
+ * - Dónde se usa: En clases de código fuente (src/main).
+ */
+@Profile("!test")
+@Configuration
+public class DatabaseConfig {
+    @Bean
+    public ConnectionFactoryInitializer initializer(ConnectionFactory connectionFactory) {
+        Resource schema = new ClassPathResource("sql/schema.sql");
+        Resource data = new ClassPathResource("sql/data.sql");
+        ResourceDatabasePopulator resourceDatabasePopulator = new ResourceDatabasePopulator(schema, data);
+
+        ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
+        initializer.setConnectionFactory(connectionFactory);
+        initializer.setDatabasePopulator(resourceDatabasePopulator);
+        return initializer;
+    }
+}
+````
+
+### 📝 Explicación de componentes
+
+- `@Profile("!test")`
+    - Evita que este bean se cargue cuando el perfil activo es `test`.
+    - Esto es clave porque en los tests normalmente se usan scripts o configuraciones específicas para poblar datos
+      controlados.
+    - En entornos de desarrollo/producción, sí se ejecuta para garantizar que las tablas y datos estén disponibles.
+
+- `ConnectionFactoryInitializer`
+    - Inicializa la conexión R2DBC y ejecuta los scripts SQL.
+    - Se le asigna un DatabasePopulator que contiene los recursos (`schema.sql`, `data.sql`).
+
+- `ResourceDatabasePopulator`
+    - Ejecuta los scripts en orden: primero `schema.sql` (DDL), luego `data.sql` (DML).
+    - Gracias a `CREATE TABLE IF NOT EXISTS`, las tablas solo se crean una vez, aunque el script se ejecute en cada
+      inicio.
+
 
