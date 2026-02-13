@@ -159,7 +159,7 @@ class EmployeeControllerIntegrationTest {
     @Test
     void shouldReturnFilteredEmployees_whenBothFiltersProvided() {
         // given
-        String position = "Teacher";
+        String position = "Teacher";  // Según data.sql: Lizbeth (id=6) y Jorge (id=7)
         Boolean fullTime = true;
 
         // when
@@ -183,51 +183,29 @@ class EmployeeControllerIntegrationTest {
                             .containsOnly(tuple(position, fullTime));
                 });
     }
-//
-//    @Test
-//    void shouldReturnEmptyStream_whenNoEmployeesFound() {
-//        // given
-//        when(this.employeeService.getAllEmployees(null, null))
-//                .thenReturn(Flux.empty());
-//
-//        // when
-//        WebTestClient.ResponseSpec response = this.webTestClient.get()
-//                .uri("/api/v1/employees/stream")
-//                .accept(MediaType.TEXT_EVENT_STREAM)
-//                .exchange();
-//
-//        // then
-//        response.expectStatus().isOk()
-//                .expectBodyList(EmployeeResponse.class)
-//                .hasSize(0);
-//
-//        verify(this.employeeService).getAllEmployees(null, null);
-//    }
-//
-//    // ===== GET /api/v1/employees/{employeeId} - findEmployee =====
-//    @Test
-//    void shouldReturnEmployee_whenValidIdProvided() {
-//        // given
-//        Long employeeId = 1L;
-//        EmployeeResponse employeeResponse = EmployeeFixture
-//                .toEmployeeResponse(EmployeeFixture.createDefaultEmployee(employeeId));
-//
-//        when(this.employeeService.showEmployee(employeeId))
-//                .thenReturn(Mono.just(employeeResponse));
-//
-//        // when
-//        WebTestClient.ResponseSpec response = this.webTestClient.get()
-//                .uri("/api/v1/employees/{employeeId}", employeeId)
-//                .exchange();
-//
-//        // then
-//        response.expectStatus().isOk()
-//                .expectHeader().contentType(MediaType.APPLICATION_JSON)
-//                .expectBody(EmployeeResponse.class)
-//                .isEqualTo(employeeResponse);
-//
-//        verify(this.employeeService).showEmployee(employeeId);
-//    }
+
+    // ===== GET /api/v1/employees/{employeeId} - findEmployee =====
+    @Test
+    void shouldReturnEmployee_whenValidIdProvided() {
+        // given
+        Long employeeId = 1L; // Martín Díaz según data.sql
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri("/api/v1/employees/{employeeId}", employeeId)
+                .exchange();
+
+        // then
+        response.expectStatus().isOk()
+                .expectHeader().contentType(MediaType.APPLICATION_JSON)
+                .expectBody(EmployeeResponse.class)
+                .consumeWith(result -> {
+                    EmployeeResponse employeeResponse = result.getResponseBody();
+                    assertThat(employeeResponse)
+                            .extracting(EmployeeResponse::id, EmployeeResponse::firstName, EmployeeResponse::lastName, EmployeeResponse::position, EmployeeResponse::fullTime)
+                            .containsExactly(1L, "Martín", "Díaz", "Gerente", true);
+                });
+    }
 //
 //    @Test
 //    void shouldReturn404_whenEmployeeNotFound() {
