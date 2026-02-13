@@ -481,3 +481,41 @@ public class Department {
     - Recibe una lista de filas (`List<Map<String, Object>>`) obtenidas de una query con join.
     - Construye un objeto `Department` con su `manager` y lista de `empleados`.
     - Devuelve un `Mono<Department>` porque estamos en un contexto reactivo.
+
+## 📂 Repositorios en Spring Data R2DBC
+
+En `R2DBC`, los repositorios estándar (`R2dbcRepository` o `ReactiveCrudRepository`) son adecuados para entidades
+simples sin relaciones complejas. Esto aplica perfectamente para la entidad `Employee`, ya que no necesitamos mapear
+`joins` directamente.
+
+### 👤 Repositorio EmployeeRepository
+
+````java
+public interface EmployeeRepository extends R2dbcRepository<Employee, Long> {
+    Flux<Employee> findByPosition(String position);
+
+    Flux<Employee> findByFullTime(Boolean isFullTime);
+
+    Flux<Employee> findByPositionAndFullTime(String position, Boolean isFullTime);
+
+    Flux<Employee> findByFirstName(String firstName);
+}
+````
+
+### 📌 Explicación
+
+- Extiende `R2dbcRepository<Employee, Long>`
+    - `Employee` → entidad que representa la tabla `employees`.
+    - `Long` → tipo de la clave primaria (`id`).
+    - Hereda métodos CRUD reactivos como `findAll()`, `findById()`, `save()`, `deleteById()`, etc.
+
+- `Query Methods (consultas derivadas por nombre de método)`. Spring Data genera automáticamente las queries basándose
+  en el nombre del método:
+    - `findByPosition(String position)` → `SELECT * FROM employees WHERE position = ?`
+    - `findByFullTime(Boolean isFullTime)` → `SELECT * FROM employees WHERE is_full_time = ?`
+    - `findByPositionAndFullTime(String position, Boolean isFullTime)` → combinación de filtros.
+    - `findByFirstName(String firstName)` → búsqueda por nombre.
+
+- Retorno reactivo (`Flux<Employee>`)
+    - `Flux` → representa múltiples resultados (`0..N`).
+    - `Mono<Employee>` se usaría para consultas que devuelven un único resultado.
