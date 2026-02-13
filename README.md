@@ -147,6 +147,45 @@ networks:
 </dependencies>
 ````
 
+## ⚙️ Configuración de propiedades (`application.yml`)
+
+El archivo `application.yml` define las propiedades principales de la aplicación, incluyendo el puerto del servidor, la
+conexión a la base de datos y el nivel de logging.
+
+````yml
+server:
+  port: 8080
+  error:
+    include-message: always
+
+spring:
+  application:
+    name: webflux-crud-test
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5435/db_webflux_r2dbc
+    username: magadiflo
+    password: magadiflo
+
+logging:
+  level:
+    dev.magadiflo.app: debug
+    io.r2dbc.postgresql.QUERY: debug
+    io.r2dbc.postgresql.PARAM: debug
+````
+
+### 📌 Observaciones
+
+- `spring.r2dbc.url`: URL de conexión reactiva a PostgreSQL.
+    - `r2dbc:postgresql://localhost:5435/db_webflux_r2dbc`
+    - `5435` corresponde al puerto mapeado en Docker Compose.
+    - `db_webflux_r2dbc` es la base de datos definida en el contenedor de desarrollo.
+- `logging.level`: Configuración de niveles de log.
+    - `dev.magadiflo.app: debug` → activa logs detallados para el paquete de la aplicación.
+    - `io.r2dbc.postgresql.QUERY: debug` → muestra las queries ejecutadas.
+    - `io.r2dbc.postgresql.PARAM: debug` → muestra los parámetros enviados en las queries.
+
+✅ Esto es muy útil para depuración en desarrollo, pero en producción se recomienda reducir el nivel a `info` o `warn`.
+
 ## 🗄️ Creación de tablas (DDL)
 
 Las reglas de negocio que definiste son correctas y se reflejan bien en el esquema SQL:
