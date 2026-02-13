@@ -94,8 +94,7 @@ class EmployeeControllerIntegrationTest {
                 .hasSize(7) // 7 empleados en src/test/resources/sql-test/data.sql
                 .consumeWith(result -> {
                     List<EmployeeResponse> employeeResponses = result.getResponseBody();
-                    assertThat(employeeResponses)
-                            .isNotNull();
+                    assertThat(employeeResponses).isNotEmpty();
                     assertThat(employeeResponses.getFirst())
                             .extracting(EmployeeResponse::id, EmployeeResponse::firstName)
                             .containsExactly(1L, "Martín");
@@ -128,33 +127,32 @@ class EmployeeControllerIntegrationTest {
                 });
     }
 
-//    @Test
-//    void shouldReturnFilteredEmployees_whenFullTimeProvided() {
-//        // given
-//        Boolean fullTime = true;
-//        EmployeeResponse response1 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDeveloper(1L, true));
-//        EmployeeResponse response2 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDesigner(2L, true));
-//
-//        when(this.employeeService.getAllEmployees(null, fullTime))
-//                .thenReturn(Flux.just(response1, response2));
-//
-//        // when
-//        WebTestClient.ResponseSpec response = this.webTestClient.get()
-//                .uri(uriBuilder -> uriBuilder
-//                        .path("/api/v1/employees/stream")
-//                        .queryParam("fullTime", fullTime)
-//                        .build())
-//                .accept(MediaType.TEXT_EVENT_STREAM)
-//                .exchange();
-//
-//        // then
-//        response.expectStatus().isOk()
-//                .expectBodyList(EmployeeResponse.class)
-//                .hasSize(2)
-//                .contains(response1, response2);
-//
-//        verify(this.employeeService).getAllEmployees(null, fullTime);
-//    }
+    @Test
+    void shouldReturnFilteredEmployees_whenFullTimeProvided() {
+        // given
+        Boolean fullTime = false; // Según data.sql: solo Vanessa (id=3)
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/employees/stream")
+                        .queryParam("fullTime", fullTime)
+                        .build())
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .exchange();
+
+        // then
+        response.expectStatus().isOk()
+                .expectBodyList(EmployeeResponse.class)
+                .hasSize(1)
+                .consumeWith(result -> {
+                    List<EmployeeResponse> employeeResponses = result.getResponseBody();
+                    assertThat(employeeResponses).isNotEmpty();
+                    assertThat(employeeResponses.getFirst())
+                            .extracting(EmployeeResponse::id, EmployeeResponse::firstName, EmployeeResponse::lastName, EmployeeResponse::position, EmployeeResponse::fullTime)
+                            .containsExactly(3L, "Vanessa", "Bello", "Diseñador", false);
+                });
+    }
 //
 //    @Test
 //    void shouldReturnFilteredEmployees_whenBothFiltersProvided() {
