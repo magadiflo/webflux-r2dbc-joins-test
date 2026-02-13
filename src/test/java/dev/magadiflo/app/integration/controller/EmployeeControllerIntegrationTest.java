@@ -101,4 +101,361 @@ class EmployeeControllerIntegrationTest {
                             .containsExactly(1L, "Martín");
                 });
     }
+
+    @Test
+    void shouldReturnFilteredEmployees_whenPositionProvided() {
+        // given
+        String position = "Gerente";
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/employees/stream")
+                        .queryParam("position", position)
+                        .build())
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .exchange();
+
+        // then
+        response.expectStatus().isOk()
+                .expectBodyList(EmployeeResponse.class)
+                .hasSize(2)
+                .consumeWith(result -> {
+                    List<EmployeeResponse> employeeResponses = result.getResponseBody();
+                    assertThat(employeeResponses)
+                            .extracting(EmployeeResponse::position)
+                            .containsOnly(position);
+                });
+    }
+
+//    @Test
+//    void shouldReturnFilteredEmployees_whenFullTimeProvided() {
+//        // given
+//        Boolean fullTime = true;
+//        EmployeeResponse response1 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDeveloper(1L, true));
+//        EmployeeResponse response2 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDesigner(2L, true));
+//
+//        when(this.employeeService.getAllEmployees(null, fullTime))
+//                .thenReturn(Flux.just(response1, response2));
+//
+//        // when
+//        WebTestClient.ResponseSpec response = this.webTestClient.get()
+//                .uri(uriBuilder -> uriBuilder
+//                        .path("/api/v1/employees/stream")
+//                        .queryParam("fullTime", fullTime)
+//                        .build())
+//                .accept(MediaType.TEXT_EVENT_STREAM)
+//                .exchange();
+//
+//        // then
+//        response.expectStatus().isOk()
+//                .expectBodyList(EmployeeResponse.class)
+//                .hasSize(2)
+//                .contains(response1, response2);
+//
+//        verify(this.employeeService).getAllEmployees(null, fullTime);
+//    }
+//
+//    @Test
+//    void shouldReturnFilteredEmployees_whenBothFiltersProvided() {
+//        // given
+//        String position = "Developer";
+//        Boolean fullTime = true;
+//        EmployeeResponse response1 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDeveloper(1L, true));
+//
+//        when(this.employeeService.getAllEmployees(position, fullTime))
+//                .thenReturn(Flux.just(response1));
+//
+//        // when
+//        WebTestClient.ResponseSpec response = this.webTestClient.get()
+//                .uri(uriBuilder -> uriBuilder
+//                        .path("/api/v1/employees/stream")
+//                        .queryParam("position", position)
+//                        .queryParam("fullTime", fullTime)
+//                        .build())
+//                .accept(MediaType.TEXT_EVENT_STREAM)
+//                .exchange();
+//
+//        // then
+//        response.expectStatus().isOk()
+//                .expectBodyList(EmployeeResponse.class)
+//                .hasSize(1)
+//                .contains(response1);
+//
+//        verify(this.employeeService).getAllEmployees(position, fullTime);
+//    }
+//
+//    @Test
+//    void shouldReturnEmptyStream_whenNoEmployeesFound() {
+//        // given
+//        when(this.employeeService.getAllEmployees(null, null))
+//                .thenReturn(Flux.empty());
+//
+//        // when
+//        WebTestClient.ResponseSpec response = this.webTestClient.get()
+//                .uri("/api/v1/employees/stream")
+//                .accept(MediaType.TEXT_EVENT_STREAM)
+//                .exchange();
+//
+//        // then
+//        response.expectStatus().isOk()
+//                .expectBodyList(EmployeeResponse.class)
+//                .hasSize(0);
+//
+//        verify(this.employeeService).getAllEmployees(null, null);
+//    }
+//
+//    // ===== GET /api/v1/employees/{employeeId} - findEmployee =====
+//    @Test
+//    void shouldReturnEmployee_whenValidIdProvided() {
+//        // given
+//        Long employeeId = 1L;
+//        EmployeeResponse employeeResponse = EmployeeFixture
+//                .toEmployeeResponse(EmployeeFixture.createDefaultEmployee(employeeId));
+//
+//        when(this.employeeService.showEmployee(employeeId))
+//                .thenReturn(Mono.just(employeeResponse));
+//
+//        // when
+//        WebTestClient.ResponseSpec response = this.webTestClient.get()
+//                .uri("/api/v1/employees/{employeeId}", employeeId)
+//                .exchange();
+//
+//        // then
+//        response.expectStatus().isOk()
+//                .expectHeader().contentType(MediaType.APPLICATION_JSON)
+//                .expectBody(EmployeeResponse.class)
+//                .isEqualTo(employeeResponse);
+//
+//        verify(this.employeeService).showEmployee(employeeId);
+//    }
+//
+//    @Test
+//    void shouldReturn404_whenEmployeeNotFound() {
+//        // given
+//        Long nonExistentId = 999L;
+//        when(this.employeeService.showEmployee(nonExistentId))
+//                .thenReturn(Mono.error(() -> new EmployeeNotFoundException(nonExistentId)));
+//
+//        // when
+//        WebTestClient.ResponseSpec response = this.webTestClient.get()
+//                .uri("/api/v1/employees/{employeeId}", nonExistentId)
+//                .exchange();
+//
+//        // then
+//        response.expectStatus().isNotFound()
+//                .expectBody()
+//                .jsonPath("$.title").isEqualTo("Empleado no encontrado")
+//                .jsonPath("$.detail").isEqualTo("El empleado con id [999] no fue encontrado");
+//
+//        verify(this.employeeService).showEmployee(nonExistentId);
+//    }
+//
+//    // ===== POST /api/v1/employees - saveEmployee =====
+//    @Test
+//    void shouldCreateEmployee_whenValidRequestProvided() {
+//        // given
+//        EmployeeRequest request = EmployeeFixture.createDefaultRequest();
+//        EmployeeResponse employeeResponse = new EmployeeResponse(
+//                1L,
+//                request.firstName(),
+//                request.lastName(),
+//                request.position(),
+//                request.fullTime()
+//        );
+//
+//        when(this.employeeService.createEmployee(request))
+//                .thenReturn(Mono.just(employeeResponse));
+//
+//        // when
+//        WebTestClient.ResponseSpec response = this.webTestClient.post()
+//                .uri("/api/v1/employees")
+//                .contentType(MediaType.APPLICATION_JSON)      // Tipo de contenido del request (lo que envío)
+//                .accept(MediaType.APPLICATION_JSON)  // Tipo de contenido esperado en la respuesta (Accept header)
+//                .bodyValue(request)
+//                .exchange();
+//
+//        // then
+//        response.expectStatus().isCreated()
+//                .expectHeader().contentType(MediaType.APPLICATION_JSON)
+//                .expectBody(EmployeeResponse.class)
+//                .isEqualTo(employeeResponse);
+//
+//        verify(this.employeeService).createEmployee(request);
+//    }
+//
+//    @Test
+//    void shouldReturn400_whenCreatingEmployeeWithInvalidData() {
+//        // given
+//        EmployeeRequest invalidRequest = new EmployeeRequest(
+//                null,
+//                "",  // firstName vacío (violación @NotBlank)
+//                "",  // lastName vacío
+//                "  ",  // position vacío
+//                null // fullTime null (violación @NotNull)
+//        );
+//
+//        // when
+//        WebTestClient.ResponseSpec response = this.webTestClient.post()
+//                .uri("/api/v1/employees")
+//                .contentType(MediaType.APPLICATION_JSON)
+//                .accept(MediaType.APPLICATION_JSON)
+//                .bodyValue(invalidRequest)
+//                .exchange();
+//
+//        // then
+//        response.expectStatus().isBadRequest()
+//                .expectBody()
+//                .jsonPath("$.title").isEqualTo("Error de validación de campos")
+//                .jsonPath("$.status").isEqualTo(400)
+//                .jsonPath("$.errors.firstName").exists()
+//                .jsonPath("$.errors.firstName[0]").isEqualTo("must not be blank")
+//                .jsonPath("$.errors.lastName").exists()
+//                .jsonPath("$.errors.lastName[0]").isEqualTo("must not be blank")
+//                .jsonPath("$.errors.position").exists()
+//                .jsonPath("$.errors.position[0]").isEqualTo("must not be blank")
+//                .jsonPath("$.errors.fullTime").exists()
+//                .jsonPath("$.errors.fullTime[0]").isEqualTo("must not be null");
+//
+//
+//        // No debe llamarse al servicio si la validación falla
+//        verifyNoInteractions(this.employeeService);
+//    }
+//
+//    // ===== PUT /api/v1/employees/{employeeId} - updateEmployee =====
+//    @Test
+//    void shouldUpdateEmployee_whenValidDataProvided() {
+//        // given
+//        Long employeeId = 1L;
+//        EmployeeRequest request = EmployeeFixture.createDefaultRequest();
+//        EmployeeResponse employeeResponse = new EmployeeResponse(
+//                employeeId,
+//                request.firstName(),
+//                request.lastName(),
+//                request.position(),
+//                request.fullTime()
+//        );
+//
+//        when(this.employeeService.updateEmployee(employeeId, request))
+//                .thenReturn(Mono.just(employeeResponse));
+//
+//        // when
+//        WebTestClient.ResponseSpec response = this.webTestClient.put()
+//                .uri("/api/v1/employees/{employeeId}", employeeId)
+//                .contentType(MediaType.APPLICATION_JSON)      // Tipo de contenido del request (lo que envío)
+//                .accept(MediaType.APPLICATION_JSON)  // Tipo de contenido esperado en la respuesta (Accept header)
+//                .bodyValue(request)
+//                .exchange();
+//
+//        // then
+//        response.expectStatus().isOk()
+//                .expectHeader().contentType(MediaType.APPLICATION_JSON)
+//                .expectBody(EmployeeResponse.class)
+//                .isEqualTo(employeeResponse);
+//
+//        verify(this.employeeService).updateEmployee(employeeId, request);
+//    }
+//
+//    @Test
+//    void shouldReturn404_whenUpdatingNonExistentEmployee() {
+//        // given
+//        Long nonExistentId = 999L;
+//        EmployeeRequest request = EmployeeFixture.createUpdateRequest();
+//
+//        when(this.employeeService.updateEmployee(nonExistentId, request))
+//                .thenReturn(Mono.error(() -> new EmployeeNotFoundException(nonExistentId)));
+//
+//        // when
+//        WebTestClient.ResponseSpec response = this.webTestClient.put()
+//                .uri("/api/v1/employees/{employeeId}", nonExistentId)
+//                .contentType(MediaType.APPLICATION_JSON)
+//                .bodyValue(request)
+//                .exchange();
+//
+//        // then
+//        response.expectStatus().isNotFound()
+//                .expectBody()
+//                .jsonPath("$.title").isEqualTo("Empleado no encontrado")
+//                .jsonPath("$.detail").isEqualTo("El empleado con id [999] no fue encontrado");
+//
+//        verify(this.employeeService).updateEmployee(nonExistentId, request);
+//    }
+//
+//    @Test
+//    void shouldReturn400_whenUpdatingWithInvalidData() {
+//        // given
+//        Long employeeId = 1L;
+//        EmployeeRequest invalidRequest = new EmployeeRequest(
+//                null,
+//                "",  // firstName vacío (violación @NotBlank)
+//                "",  // lastName vacío
+//                "  ",  // position vacío
+//                null // fullTime null (violación @NotNull)
+//        );
+//
+//        // when
+//        WebTestClient.ResponseSpec response = this.webTestClient.put()
+//                .uri("/api/v1/employees/{employeeId}", employeeId)
+//                .contentType(MediaType.APPLICATION_JSON)
+//                .bodyValue(invalidRequest)
+//                .exchange();
+//
+//        // then
+//        response.expectStatus().isBadRequest()
+//                .expectBody()
+//                .jsonPath("$.title").isEqualTo("Error de validación de campos")
+//                .jsonPath("$.status").isEqualTo(400)
+//                .jsonPath("$.errors.firstName").exists()
+//                .jsonPath("$.errors.firstName[0]").isEqualTo("must not be blank")
+//                .jsonPath("$.errors.lastName").exists()
+//                .jsonPath("$.errors.lastName[0]").isEqualTo("must not be blank")
+//                .jsonPath("$.errors.position").exists()
+//                .jsonPath("$.errors.position[0]").isEqualTo("must not be blank")
+//                .jsonPath("$.errors.fullTime").exists()
+//                .jsonPath("$.errors.fullTime[0]").isEqualTo("must not be null");
+//
+//        verifyNoInteractions(this.employeeService);
+//    }
+//
+//    // ===== DELETE /api/v1/employees/{employeeId} - deleteEmployee =====
+//    @Test
+//    void shouldDeleteEmployee_whenValidIdProvided() {
+//        // given
+//        Long employeeId = 1L;
+//        when(this.employeeService.deleteEmployee(employeeId))
+//                .thenReturn(Mono.empty());
+//
+//        // when
+//        WebTestClient.ResponseSpec response = this.webTestClient.delete()
+//                .uri("/api/v1/employees/{employeeId}", employeeId)
+//                .exchange();
+//
+//        // then
+//        response.expectStatus().isNoContent()
+//                .expectBody().isEmpty();
+//
+//        verify(this.employeeService).deleteEmployee(employeeId);
+//    }
+//
+//    @Test
+//    void shouldReturn404_whenDeletingNonExistentEmployee() {
+//        // given
+//        Long nonExistentId = 999L;
+//
+//        when(this.employeeService.deleteEmployee(nonExistentId))
+//                .thenReturn(Mono.error(() -> new EmployeeNotFoundException(nonExistentId)));
+//
+//        // when
+//        WebTestClient.ResponseSpec response = this.webTestClient.delete()
+//                .uri("/api/v1/employees/{employeeId}", nonExistentId)
+//                .exchange();
+//
+//        // then
+//        response.expectStatus().isNotFound()
+//                .expectBody()
+//                .jsonPath("$.title").isEqualTo("Empleado no encontrado")
+//                .jsonPath("$.detail").isEqualTo("El empleado con id [999] no fue encontrado");
+//
+//        verify(this.employeeService).deleteEmployee(nonExistentId);
+//    }
 }
