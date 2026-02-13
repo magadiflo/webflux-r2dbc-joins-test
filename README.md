@@ -367,4 +367,117 @@ public class DatabaseConfig {
     - Gracias a `CREATE TABLE IF NOT EXISTS`, las tablas solo se crean una vez, aunque el script se ejecute en cada
       inicio.
 
+## 🧩 Entidades en Spring Data R2DBC
 
+En `R2DBC`, las entidades representan directamente las tablas de la base de datos. A diferencia de `JPA/Hibernate`,
+no existe un mapeo automático de relaciones (`@OneToMany`, `@ManyToOne`, etc.), por lo que debemos implementar
+manualmente la lógica de construcción de objetos cuando trabajamos con joins o queries personalizadas.
+
+### 👤 Entidad Employee
+
+````java
+
+@ToString
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@Setter
+@Getter
+@Table(name = "employees")
+public class Employee {
+    @Id
+    private Long id;
+    private String firstName;
+    private String lastName;
+    private String position;
+    @Column("is_full_time")
+    private Boolean fullTime;
+
+    public static Employee fromRow(Map<String, Object> row) {
+        if (Objects.isNull(row.get("e_id"))) return null;
+
+        return Employee.builder()
+                .id(((Number) row.get("e_id")).longValue())
+                .firstName((String) row.get("e_firstName"))
+                .lastName((String) row.get("e_lastName"))
+                .position((String) row.get("e_position"))
+                .fullTime((Boolean) row.get("e_isFullTime"))
+                .build();
+    }
+
+    public static Employee managerFromRow(Map<String, Object> row) {
+        if (Objects.isNull(row.get("m_id"))) return null;
+
+        return Employee.builder()
+                .id(((Number) row.get("m_id")).longValue())
+                .firstName((String) row.get("m_firstName"))
+                .lastName((String) row.get("m_lastName"))
+                .position((String) row.get("m_position"))
+                .fullTime((Boolean) row.get("m_isFullTime"))
+                .build();
+    }
+}
+````
+
+### 📌 Observaciones
+
+- `@Table(name = "employees")` → vincula la clase con la tabla employees.
+- `@Id` → indica la columna primaria.
+- `@Column("is_full_time")` → mapea la columna con nombre distinto al atributo (`fullTime`).
+- Métodos estáticos `fromRow(...)` y `managerFromRow(...)`:
+    - Se usan para construir objetos a partir de resultados de queries personalizadas con `DatabaseClient`.
+    - Los prefijos (`e_`, `m_`) corresponden a alias definidos en las queries SQL para diferenciar entre empleados y
+      managers.
+    - Esto es necesario porque `R2DBC` no hace el mapeo automático de joins.
+
+### 🏢 Entidad Department
+
+````java
+
+@ToString
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@Setter
+@Getter
+@Table(name = "departments")
+public class Department {
+    @Id
+    private Long id;
+    private String name;
+    private Employee manager;
+    @Builder.Default
+    private List<Employee> employees = new ArrayList<>();
+
+    public Optional<Employee> getManager() {
+        return Optional.ofNullable(this.manager);
+    }
+
+    public static Mono<Department> fromRows(List<Map<String, Object>> rows) {
+        if (rows.isEmpty()) return Mono.empty();
+
+        Map<String, Object> rowsFirst = rows.getFirst();
+        Department department = Department.builder()
+                .id(((Number) rowsFirst.get("d_id")).longValue())
+                .name((String) rowsFirst.get("d_name"))
+                .manager(Employee.managerFromRow(rowsFirst))
+                .employees(rows.stream()
+                        .map(Employee::fromRow)
+                        .filter(Objects::nonNull)
+                        .toList())
+                .build();
+
+        return Mono.just(department);
+    }
+}
+````
+
+### 📌 Observaciones
+
+- `@Table(name = "departments")` → vincula la clase con la tabla `departments`.
+- `manager` y `employees` → no son mapeados automáticamente por `R2DBC`, se construyen manualmente.
+- `@Builder.Default` → asegura que la lista employees no sea `null` cuando se use el patrón `Builder`.
+- `fromRows(...)`:
+    - Recibe una lista de filas (`List<Map<String, Object>>`) obtenidas de una query con join.
+    - Construye un objeto `Department` con su `manager` y lista de `empleados`.
+    - Devuelve un `Mono<Department>` porque estamos en un contexto reactivo.
