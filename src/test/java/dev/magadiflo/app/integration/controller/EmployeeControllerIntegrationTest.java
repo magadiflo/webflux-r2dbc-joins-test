@@ -2,6 +2,7 @@ package dev.magadiflo.app.integration.controller;
 
 import dev.magadiflo.app.config.TestDatabaseConfig;
 import dev.magadiflo.app.dto.EmployeeResponse;
+
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 /**
  * Tests de integración para EmployeeController.
@@ -153,35 +155,34 @@ class EmployeeControllerIntegrationTest {
                             .containsExactly(3L, "Vanessa", "Bello", "Diseñador", false);
                 });
     }
-//
-//    @Test
-//    void shouldReturnFilteredEmployees_whenBothFiltersProvided() {
-//        // given
-//        String position = "Developer";
-//        Boolean fullTime = true;
-//        EmployeeResponse response1 = EmployeeFixture.toEmployeeResponse(EmployeeFixture.createDeveloper(1L, true));
-//
-//        when(this.employeeService.getAllEmployees(position, fullTime))
-//                .thenReturn(Flux.just(response1));
-//
-//        // when
-//        WebTestClient.ResponseSpec response = this.webTestClient.get()
-//                .uri(uriBuilder -> uriBuilder
-//                        .path("/api/v1/employees/stream")
-//                        .queryParam("position", position)
-//                        .queryParam("fullTime", fullTime)
-//                        .build())
-//                .accept(MediaType.TEXT_EVENT_STREAM)
-//                .exchange();
-//
-//        // then
-//        response.expectStatus().isOk()
-//                .expectBodyList(EmployeeResponse.class)
-//                .hasSize(1)
-//                .contains(response1);
-//
-//        verify(this.employeeService).getAllEmployees(position, fullTime);
-//    }
+
+    @Test
+    void shouldReturnFilteredEmployees_whenBothFiltersProvided() {
+        // given
+        String position = "Teacher";
+        Boolean fullTime = true;
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/employees/stream")
+                        .queryParam("position", position)
+                        .queryParam("fullTime", fullTime)
+                        .build())
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .exchange();
+
+        // then
+        response.expectStatus().isOk()
+                .expectBodyList(EmployeeResponse.class)
+                .hasSize(2)
+                .consumeWith(result -> {
+                    List<EmployeeResponse> employeeResponses = result.getResponseBody();
+                    assertThat(employeeResponses)
+                            .extracting(EmployeeResponse::position, EmployeeResponse::fullTime)
+                            .containsOnly(tuple(position, fullTime));
+                });
+    }
 //
 //    @Test
 //    void shouldReturnEmptyStream_whenNoEmployeesFound() {
