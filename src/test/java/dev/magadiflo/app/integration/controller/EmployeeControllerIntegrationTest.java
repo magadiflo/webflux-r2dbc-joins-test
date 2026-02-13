@@ -206,28 +206,24 @@ class EmployeeControllerIntegrationTest {
                             .containsExactly(1L, "Martín", "Díaz", "Gerente", true);
                 });
     }
-//
-//    @Test
-//    void shouldReturn404_whenEmployeeNotFound() {
-//        // given
-//        Long nonExistentId = 999L;
-//        when(this.employeeService.showEmployee(nonExistentId))
-//                .thenReturn(Mono.error(() -> new EmployeeNotFoundException(nonExistentId)));
-//
-//        // when
-//        WebTestClient.ResponseSpec response = this.webTestClient.get()
-//                .uri("/api/v1/employees/{employeeId}", nonExistentId)
-//                .exchange();
-//
-//        // then
-//        response.expectStatus().isNotFound()
-//                .expectBody()
-//                .jsonPath("$.title").isEqualTo("Empleado no encontrado")
-//                .jsonPath("$.detail").isEqualTo("El empleado con id [999] no fue encontrado");
-//
-//        verify(this.employeeService).showEmployee(nonExistentId);
-//    }
-//
+
+    @Test
+    void shouldReturn404_whenEmployeeNotFound() {
+        // given
+        Long nonExistentId = 999L;
+
+        // when
+        WebTestClient.ResponseSpec response = this.webTestClient.get()
+                .uri("/api/v1/employees/{employeeId}", nonExistentId)
+                .exchange();
+
+        // then
+        response.expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.title").isEqualTo("Empleado no encontrado")
+                .jsonPath("$.detail").isEqualTo("El empleado con id [999] no fue encontrado");
+    }
+
 //    // ===== POST /api/v1/employees - saveEmployee =====
 //    @Test
 //    void shouldCreateEmployee_whenValidRequestProvided() {
