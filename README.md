@@ -846,3 +846,129 @@ DEBUG 3488 --- [webflux-crud-test] [actor-tcp-nio-2] d.m.app.dao.impl.Department
 El operador `bufferUntilChanged(...)` es esencial para transformar resultados planos de un join en estructuras
 jerárquicas. Gracias a él, podemos pasar de filas individuales a objetos de dominio completos (Department con manager y
 empleados), manteniendo la naturaleza reactiva del flujo.
+
+### 💾 Método `save()`
+
+Recuperar entidades es relativamente sencillo: se consulta la base de datos y se construye el objeto.
+Sin embargo, persistir entidades con relaciones requiere una cadena de pasos bien definida. En el caso de `Department`,
+debemos guardar tanto el departamento como sus entidades relacionadas (`manager` y `employees`), además de actualizar
+las tablas intermedias que mantienen las relaciones.
+
+#### 📌 Flujo de persistencia
+
+El proceso sigue una cadena de pasos:
+
+1. Guardar o actualizar el Department.
+2. Guardar o actualizar el manager (`Employee`).
+3. Guardar o actualizar cada employee.
+4. Eliminar relaciones previas entre `Department` y `Manager`.
+5. Insertar la nueva relación `Department ↔ Manager`.
+6. Eliminar relaciones previas entre `Department` y `Employees`.
+7. Insertar las nuevas relaciones `Department ↔ Employees`.
+
+#### 👨‍💻 Método público
+
+````java
+
+@Override
+public Mono<Department> save(Department department) {
+    return this.saveDepartment(department)
+            .flatMap(this::saveManager)
+            .flatMap(this::saveEmployees)
+            .flatMap(this::deleteDepartmentManager)
+            .flatMap(this::saveDepartmentManager)
+            .flatMap(this::deleteDepartmentEmployees)
+            .flatMap(this::saveDepartmentEmployees);
+}
+````
+
+👉 Aquí vemos cómo el objeto `Department` fluye paso a paso, siendo enriquecido y actualizado en cada etapa.
+
+#### 🏢 Paso 1: Guardar o actualizar el Department
+
+````java
+private Mono<Department> saveDepartment(Department department) {
+    if (Objects.isNull(department.getId())) {
+        return this.client.sql("""
+                        INSERT INTO departments(name)
+                        VALUES(:name)
+                        """)
+                .bind("name", department.getName())
+                .filter((statement, next) -> statement.returnGeneratedValues("id").execute())
+                .fetch()
+                .one()
+                .doOnNext(result -> department.setId(((Number) result.get("id")).longValue()))
+                .thenReturn(department);
+    }
+    return this.client.sql("""
+                    UPDATE departments
+                    SET name = :name
+                    WHERE id = :departmentId
+                    """)
+            .bind("name", department.getName())
+            .bind("departmentId", department.getId())
+            .fetch()
+            .one()
+            .thenReturn(department);
+}
+````
+
+- Si el `id` es `null` → se inserta un nuevo departamento y se recupera el `id` generado.
+- Si el `id` existe → se actualiza el nombre del departamento.
+- En ambos casos, el objeto `Department` se devuelve con su estado actualizado.
+
+#### 👤 Paso 2: Guardar el Manager
+
+````java
+private Mono<Department> saveManager(Department department) {
+    return Mono.justOrEmpty(department.getManager())
+            .flatMap(this.employeeRepository::save)
+            .doOnNext(department::setManager)
+            .thenReturn(department);
+}
+````
+
+- Usa `EmployeeRepository` para persistir el `manager`.
+- `Mono.justOrEmpty` evita errores si el manager es `null`.
+- Una vez guardado, se actualiza la referencia en el objeto `Department`.
+
+#### 🔄 Paso 3: Actualizar relación Department ↔ Manager
+
+Primero eliminamos la relación previa:
+
+````java
+private Mono<Department> deleteDepartmentManager(Department department) {
+    return this.client.sql("DELETE FROM department_managers WHERE department_id = :departmentId")
+            .bind("departmentId", department.getId())
+            .fetch()
+            .rowsUpdated()
+            .thenReturn(department);
+}
+````
+
+Luego insertamos la nueva relación:
+
+````java
+private Mono<Department> saveDepartmentManager(Department department) {
+    return Mono.justOrEmpty(department.getManager())
+            .flatMap(manager -> this.client.sql("""
+                            INSERT INTO department_managers(department_id, employee_id)
+                            VALUES(:departmentId, :employeeId)
+                            """)
+                    .bind("departmentId", department.getId())
+                    .bind("employeeId", manager.getId())
+                    .fetch()
+                    .rowsUpdated())
+            .thenReturn(department);
+}
+````
+
+#### ✅ Resumen
+
+El método `save()`:
+
+- Persiste el `Department`.
+- Persiste las entidades anidadas (`manager` y `employees`).
+- Actualiza las relaciones en las tablas intermedias.
+- Devuelve el objeto `Department` con su estado actualizado.
+
