@@ -972,3 +972,96 @@ El método `save()`:
 - Actualiza las relaciones en las tablas intermedias.
 - Devuelve el objeto `Department` con su estado actualizado.
 
+## 📦 Creando DTOs
+
+Los `DTOs (Data Transfer Objects)` son clases diseñadas para transportar datos entre capas de la aplicación
+`(controladores ↔ servicios ↔ DAOs/repositorios)`.
+
+Su objetivo principal es separar la representación externa `(API)` de la lógica interna `(entidades)`,
+evitando exponer directamente las entidades de base de datos.
+
+### 📝 DepartmentRequest
+
+````java
+public record DepartmentRequest(@NotBlank
+                                String name,
+
+                                // ⚠️ No se usa @Valid intencionalmente.
+                                // Los campos de EmployeeRequest NO se validan en este endpoint.
+                                // Si en el futuro se requiere validación anidada, agregar @Valid.
+                                EmployeeRequest manager,
+
+                                // ⚠️ Tampoco se valida la lista de empleados por diseño.
+                                List<EmployeeRequest> employees) {
+
+    public DepartmentRequest {
+        employees = Objects.isNull(employees) ? List.of() : employees;
+    }
+}
+````
+
+#### 📌 Observaciones
+
+- Representa los datos que llegan desde el cliente para crear/actualizar un `Department`.
+- `@NotBlank` asegura que el nombre no sea vacío.
+- No se valida `manager` ni `employees` por diseño (esto puede cambiar si en el futuro se requiere validación anidada
+  con `@Valid`).
+- El constructor compactado garantiza que employees nunca sea `null`, sino una `lista vacía`.
+
+### 📤 DepartmentResponse
+
+````java
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record DepartmentResponse(Long id,
+                                 String name,
+                                 EmployeeResponse manager,
+                                 List<EmployeeResponse> employees) {
+}
+````
+
+#### 📌 Observaciones
+
+- Representa la respuesta enviada al cliente.
+- `@JsonInclude(JsonInclude.Include.NON_NULL)` evita enviar campos nulos en el JSON.
+- Incluye el `manager` y la lista de `employees` si existen.
+
+### 👤 EmployeeRequest
+
+````java
+public record EmployeeRequest(Long id,
+
+                              // Campos que sí requieren validación
+                              @NotBlank
+                              String firstName,
+                              @NotBlank
+                              String lastName,
+                              @NotBlank
+                              String position,
+                              @NotNull
+                              Boolean fullTime) {
+}
+````
+
+#### 📌 Observaciones
+
+- DTO para recibir datos de un empleado.
+- Incluye validaciones básicas: nombre, apellido, posición y estado (fullTime).
+- El id puede ser null en inserciones, pero se usa en actualizaciones.
+
+### 📤 EmployeeResponse
+
+````java
+public record EmployeeResponse(Long id,
+                               String firstName,
+                               String lastName,
+                               String position,
+                               Boolean fullTime) {
+}
+````
+
+#### 📌 Observaciones
+
+- DTO para enviar datos de un empleado en la respuesta.
+- No requiere validaciones, ya que solo representa datos salientes.
+
