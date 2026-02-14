@@ -799,3 +799,50 @@ public Flux<Department> findAll() {
     - Convierte cada grupo de filas en un objeto `Department`.
     - Usa el método estático `fromRows(...)` de la entidad `Department`, que construye el objeto con su `manager`
       y `lista de empleados`.
+
+#### 🔎 Viendo el comportamiento del `findAll()`
+
+Para entender cómo fluye la información en este método, agregamos logs en distintos puntos de la cadena reactiva:
+
+````java
+
+@Override
+public Flux<Department> findAll() {
+    return this.client.sql("%s ORDER BY d.id".formatted(SELECT_QUERY))
+            .fetch()
+            .all()
+            .doOnNext(rowMap -> log.info("{}", rowMap))         // log de cada fila emitida
+            .bufferUntilChanged(rowMap -> rowMap.get("d_id"))
+            .doOnNext(mapList -> log.debug("{}", mapList))      // log de cada grupo de filas
+            .flatMap(Department::fromRows);
+}
+````
+
+Si se ejecuta este método, en la consola veremos el siguiente resultado:
+
+````bash
+ INFO 3488 --- [webflux-crud-test] [actor-tcp-nio-2] d.m.app.dao.impl.DepartmentDaoImpl       : {d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=5, e_firstname=José, e_lastname=Pérez, e_position=Soporte, e_isfulltime=true}
+ INFO 3488 --- [webflux-crud-test] [actor-tcp-nio-2] d.m.app.dao.impl.DepartmentDaoImpl       : {d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=7, e_firstname=Jorge, e_lastname=López, e_position=Analista, e_isfulltime=false}
+DEBUG 3488 --- [webflux-crud-test] [actor-tcp-nio-2] d.m.app.dao.impl.DepartmentDaoImpl       : [{d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=5, e_firstname=José, e_lastname=Pérez, e_position=Soporte, e_isfulltime=true}, {d_id=1, d_name=Recursos Humanos, m_id=1, m_firstname=Carlos, m_lastname=Gómez, m_position=Gerente, m_isfulltime=true, e_id=7, e_firstname=Jorge, e_lastname=López, e_position=Analista, e_isfulltime=false}]
+ INFO 3488 --- [webflux-crud-test] [actor-tcp-nio-2] d.m.app.controller.DepartmentController  : DepartmentResponse[id=1, name=Recursos Humanos, manager=null, employees=null]
+ 
+ INFO 3488 --- [webflux-crud-test] [actor-tcp-nio-2] d.m.app.dao.impl.DepartmentDaoImpl       : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=2, e_firstname=Ana, e_lastname=Martínez, e_position=Desarrollador, e_isfulltime=true}
+ INFO 3488 --- [webflux-crud-test] [actor-tcp-nio-2] d.m.app.dao.impl.DepartmentDaoImpl       : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=6, e_firstname=Laura, e_lastname=Sánchez, e_position=Desarrollador, e_isfulltime=true}
+ INFO 3488 --- [webflux-crud-test] [actor-tcp-nio-2] d.m.app.dao.impl.DepartmentDaoImpl       : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=11, e_firstname=Miguel, e_lastname=Hernández, e_position=Desarrollador, e_isfulltime=true}
+ INFO 3488 --- [webflux-crud-test] [actor-tcp-nio-2] d.m.app.dao.impl.DepartmentDaoImpl       : {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=13, e_firstname=Pablo, e_lastname=Jiménez, e_position=Desarrollador, e_isfulltime=true}
+DEBUG 3488 --- [webflux-crud-test] [actor-tcp-nio-2] d.m.app.dao.impl.DepartmentDaoImpl       : [{d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=2, e_firstname=Ana, e_lastname=Martínez, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=6, e_firstname=Laura, e_lastname=Sánchez, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=11, e_firstname=Miguel, e_lastname=Hernández, e_position=Desarrollador, e_isfulltime=true}, {d_id=2, d_name=Tecnología, m_id=8, m_firstname=Sofía, m_lastname=Díaz, m_position=Gerente, m_isfulltime=true, e_id=13, e_firstname=Pablo, e_lastname=Jiménez, e_position=Desarrollador, e_isfulltime=true}]
+ INFO 3488 --- [webflux-crud-test] [actor-tcp-nio-2] d.m.app.controller.DepartmentController  : DepartmentResponse[id=2, name=Tecnología, manager=null, employees=null]
+...
+````
+
+- `all()` → emite cada fila individual.
+- `bufferUntilChanged(d_id)` → agrupa en dos listas:
+    - `Lista 1` → filas con `d_id=1`
+    - `Lista 2` → filas con `d_id=2`
+    - `flatMap(fromRows)` → convierte cada lista en un `Department` con sus empleados.
+
+#### ✅ Conclusión
+
+El operador `bufferUntilChanged(...)` es esencial para transformar resultados planos de un join en estructuras
+jerárquicas. Gracias a él, podemos pasar de filas individuales a objetos de dominio completos (Department con manager y
+empleados), manteniendo la naturaleza reactiva del flujo.
