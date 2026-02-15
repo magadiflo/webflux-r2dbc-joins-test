@@ -1188,3 +1188,97 @@ public class GlobalExceptionHandler {
     }
 }
 ````
+
+## 🔄 Mapper
+
+Los `mappers` son clases que se encargan de convertir entre entidades (objetos de dominio que representan tablas en la
+BD) y DTOs (objetos que usamos para transportar datos en la API).
+
+Su objetivo es mantener una separación clara entre la capa de persistencia y la capa de presentación, evitando exponer
+directamente las entidades.
+
+### 👤 EmployeeMapper
+
+````java
+
+@Slf4j
+@Component
+public class EmployeeMapper {
+    public EmployeeResponse toEmployeeResponse(Employee employee) {
+        return new EmployeeResponse(
+                employee.getId(),
+                employee.getFirstName(),
+                employee.getLastName(),
+                employee.getPosition(),
+                employee.getFullTime()
+        );
+    }
+
+    public Employee toEmployee(EmployeeRequest employeeRequest) {
+        return Employee.builder()
+                .id(employeeRequest.id())
+                .firstName(employeeRequest.firstName())
+                .lastName(employeeRequest.lastName())
+                .position(employeeRequest.position())
+                .fullTime(employeeRequest.fullTime())
+                .build();
+    }
+}
+````
+
+#### 📌 Observaciones
+
+- `toEmployeeResponse(...)` → convierte una entidad `Employee` en un DTO de salida (`EmployeeResponse`).
+- `toEmployee(...)` → convierte un DTO de entrada (`EmployeeRequest`) en una entidad `Employee`.
+- Uso de `@Component` → permite inyectar el mapper en otras clases (ej. `DepartmentMapper`).
+- Uso de `@Slf4j` → habilita logs si se requiere depuración en el proceso de mapeo.
+
+### 🏢 DepartmentMapper
+
+````java
+
+@Slf4j
+@RequiredArgsConstructor
+@Component
+public class DepartmentMapper {
+
+    private final EmployeeMapper employeeMapper;
+
+    public DepartmentResponse toBasicDepartmentResponse(final Department department) {
+        return new DepartmentResponse(
+                department.getId(),
+                department.getName(),
+                null,
+                null);
+    }
+
+    public DepartmentResponse toDepartmentResponse(final Department department) {
+        return new DepartmentResponse(
+                department.getId(),
+                department.getName(),
+                department.getManager()
+                        .map(this.employeeMapper::toEmployeeResponse)
+                        .orElseGet(() -> null),
+                department.getEmployees().stream()
+                        .map(this.employeeMapper::toEmployeeResponse)
+                        .toList()
+        );
+    }
+
+    public Department toDepartment(DepartmentRequest request) {
+        return Department.builder()
+                .name(request.name())
+                .build();
+    }
+}
+````
+
+#### 📌 Observaciones
+
+- `toBasicDepartmentResponse(...)` → devuelve solo los datos básicos del departamento (id y nombre). Útil para listados
+  simples.
+- `toDepartmentResponse(...)` → convierte un `Department` completo en un DTO de salida (`DepartmentResponse`),
+  incluyendo manager y empleados.
+- Usa `Optional.map(...)` para manejar el caso en que el manager sea `null`.
+- Convierte la lista de empleados con `stream().map(...)`.
+- `toDepartment(...)` → convierte un DTO de entrada (`DepartmentRequest`) en una entidad `Department`.
