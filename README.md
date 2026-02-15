@@ -1501,3 +1501,125 @@ public class DepartmentServiceImpl implements DepartmentService {
     }
 }
 ````
+
+## 🌐 Controladores WebFlux
+
+Los `controladores` son la capa que expone los servicios a través de endpoints `REST`.
+Aquí se reciben las peticiones HTTP, se validan los datos de entrada y se delega la lógica de negocio a los servicios.
+Finalmente, se construye la respuesta en formato JSON o como flujo reactivo.
+
+````java
+
+@Slf4j
+@RequiredArgsConstructor
+@RestController
+@RequestMapping(path = "/api/v1/employees")
+public class EmployeeController {
+
+    private final EmployeeService employeeService;
+
+    @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Mono<ResponseEntity<Flux<EmployeeResponse>>> findAllEmployees(@RequestParam(required = false) String position,
+                                                                         @RequestParam(required = false) Boolean fullTime) {
+        Flux<EmployeeResponse> employeeResponseFlux = this.employeeService.getAllEmployees(position, fullTime)
+                .doOnNext(employeeResponse -> log.info("{}", employeeResponse));
+        return Mono.just(ResponseEntity.ok(employeeResponseFlux));
+    }
+
+    @GetMapping(path = "/{employeeId}")
+    public Mono<ResponseEntity<EmployeeResponse>> findEmployee(@PathVariable Long employeeId) {
+        return this.employeeService.showEmployee(employeeId)
+                .doOnNext(employeeResponse -> log.info("{}", employeeResponse))
+                .map(ResponseEntity::ok);
+    }
+
+    @PostMapping
+    public Mono<ResponseEntity<EmployeeResponse>> saveEmployee(@Valid @RequestBody Mono<EmployeeRequest> requestMono) {
+        return requestMono
+                .flatMap(this.employeeService::createEmployee)
+                .doOnNext(employeeResponse -> log.info("{}", employeeResponse))
+                .map(employeeResponse -> ResponseEntity.status(HttpStatus.CREATED).body(employeeResponse));
+    }
+
+    @PutMapping(path = "/{employeeId}")
+    public Mono<ResponseEntity<EmployeeResponse>> updateEmployee(@PathVariable Long employeeId,
+                                                                 @Valid @RequestBody Mono<EmployeeRequest> requestMono) {
+        return requestMono
+                .flatMap(employeeRequest -> this.employeeService.updateEmployee(employeeId, employeeRequest))
+                .doOnNext(employeeResponse -> log.info("{}", employeeResponse))
+                .map(ResponseEntity::ok);
+    }
+
+    @DeleteMapping(path = "/{employeeId}")
+    public Mono<ResponseEntity<Void>> deleteEmployee(@PathVariable Long employeeId) {
+        return this.employeeService.deleteEmployee(employeeId)
+                .thenReturn(ResponseEntity.noContent().build());
+    }
+
+}
+````
+
+````java
+
+@Slf4j
+@RequiredArgsConstructor
+@RestController
+@RequestMapping(path = "/api/v1/departments")
+public class DepartmentController {
+
+    private final DepartmentService departmentService;
+
+    @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Mono<ResponseEntity<Flux<DepartmentResponse>>> findAllDepartments() {
+        Flux<DepartmentResponse> departmentResponseFlux = this.departmentService.getAllDepartments()
+                .doOnNext(departmentResponse -> log.info("{}", departmentResponse));
+        return Mono.just(ResponseEntity.ok(departmentResponseFlux));
+    }
+
+    @GetMapping(path = "/{departmentId}/stream-employees", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Mono<ResponseEntity<Flux<EmployeeResponse>>> getEmployeesFromDepartment(@PathVariable Long departmentId,
+                                                                                   @RequestParam(required = false) Boolean fullTime) {
+        Flux<EmployeeResponse> employeeResponseFlux = this.departmentService.getEmployeesFromDepartment(departmentId, fullTime)
+                .doOnNext(employeeResponse -> log.info("{}", employeeResponse));
+        return Mono.just(ResponseEntity.ok(employeeResponseFlux));
+    }
+
+    @GetMapping(path = "/{departmentId}")
+    public Mono<ResponseEntity<DepartmentResponse>> findDepartment(@PathVariable Long departmentId) {
+        return this.departmentService.showDepartment(departmentId)
+                .doOnNext(departmentResponse -> log.info("{}", departmentResponse))
+                .map(ResponseEntity::ok);
+    }
+
+    @GetMapping(path = "/{departmentId}/manager-employees")
+    public Mono<ResponseEntity<DepartmentResponse>> findWithManagerAndEmployees(@PathVariable Long departmentId) {
+        return this.departmentService.showDepartmentWithManagerAndEmployees(departmentId)
+                .doOnNext(departmentResponse -> log.info("{}", departmentResponse))
+                .map(ResponseEntity::ok);
+    }
+
+    @PostMapping
+    public Mono<ResponseEntity<DepartmentResponse>> saveDepartment(@Valid @RequestBody DepartmentRequest request) {
+        return this.departmentService.createDepartment(request)
+                .doOnNext(departmentResponse -> log.info("{}", departmentResponse))
+                .map(departmentResponse ->
+                        ResponseEntity.status(HttpStatus.CREATED).body(departmentResponse)
+                );
+    }
+
+    @PutMapping(path = "/{departmentId}")
+    public Mono<ResponseEntity<DepartmentResponse>> updateDepartment(@PathVariable Long departmentId,
+                                                                     @RequestBody DepartmentRequest departmentRequest) {
+        return this.departmentService.updateDepartment(departmentId, departmentRequest)
+                .doOnNext(departmentResponse -> log.info("{}", departmentResponse))
+                .map(ResponseEntity::ok);
+    }
+
+    @DeleteMapping(path = "/{departmentId}")
+    public Mono<ResponseEntity<Void>> deleteDepartment(@PathVariable Long departmentId) {
+        return this.departmentService.deleteDepartment(departmentId)
+                .thenReturn(ResponseEntity.noContent().build());
+    }
+
+}
+````
