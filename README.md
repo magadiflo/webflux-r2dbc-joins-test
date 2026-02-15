@@ -1644,8 +1644,6 @@ data:{"id":2,"firstName":"Ana","lastName":"Martínez","position":"Desarrollador"
 data:{"id":19,"firstName":"Andrés","lastName":"Castillo","position":"Analista","fullTime":true}
 
 data:{"id":20,"firstName":"Isabel","lastName":"Ramos","position":"Desarrollador","fullTime":true}
-
-* Connection #0 to host localhost:8080 left intact
 ````
 
 #### 📌 Explicación del resultado:
@@ -1783,6 +1781,157 @@ $ curl -v -X PUT -H "Content-type: application/json" -d "{\"firstName\": \"Updat
 ````bash
 $ curl -v -X DELETE http://localhost:8080/api/v1/employees/21 | jq
 >
+< HTTP/1.1 204 No Content
+<
+````
+
+## 🔎 Probando endpoints de Departments
+
+### 1. Listar departamentos en streaming
+
+````bash
+$ curl -v http://localhost:8080/api/v1/departments/stream
+>
+< HTTP/1.1 200 OK
+< transfer-encoding: chunked
+< Content-Type: text/event-stream;charset=UTF-8
+<
+data:{"id":1,"name":"Recursos Humanos"}
+
+data:{"id":2,"name":"Tecnología"}
+
+data:{"id":3,"name":"Finanzas"}
+
+data:{"id":4,"name":"Marketing"}
+
+data:{"id":5,"name":"Ventas"}
+````
+
+### 2. Consultar todos los empleados que pertenecen a un departamento
+
+````bash
+$ curl -v http://localhost:8080/api/v1/departments/1/stream-employees
+>
+< HTTP/1.1 200 OK
+< transfer-encoding: chunked
+< Content-Type: text/event-stream;charset=UTF-8
+<
+data:{"id":5,"firstName":"José","lastName":"Pérez","position":"Soporte","fullTime":true}
+
+data:{"id":7,"firstName":"Jorge","lastName":"López","position":"Analista","fullTime":false}
+````
+
+### 3. Consultar un departamento por ID
+
+````bash
+$ curl -v http://localhost:8080/api/v1/departments/1 | jq
+>
+< HTTP/1.1 200 OK
+< Content-Type: application/json
+< Content-Length: 34
+<
+{
+  "id": 1,
+  "name": "Recursos Humanos"
+}
+````
+
+### 4. Consultar un departamento que no existe
+
+````bash
+$ curl -v http://localhost:8080/api/v1/departments/999 | jq
+>
+< HTTP/1.1 404 Not Found
+< Content-Type: application/problem+json
+< Content-Length: 167
+<
+{
+  "type": "about:blank",
+  "title": "Departamento no encontrado",
+  "status": 404,
+  "detail": "El departamento con id [999] no fue encontrado",
+  "instance": "/api/v1/departments/999"
+}
+````
+
+### 5. Registra un departamento
+
+````bash
+$ curl -v -X POST -H "Content-Type: application/json" -d "{\"name\": \"Gerencia\"}" http://localhost:8080/api/v1/departments | jq
+>
+< HTTP/1.1 201 Created
+< Content-Type: application/json
+< Content-Length: 26
+<
+{
+  "id": 6,
+  "name": "Gerencia"
+}
+````
+
+### 6. Valida datos al registrar departamento
+
+````bash
+$ curl -v -X POST -H "Content-Type: application/json" -d "{\"name\": \" \"}" http://localhost:8080/api/v1/departments | jq
+>
+< HTTP/1.1 400 Bad Request
+< Content-Type: application/problem+json
+< Content-Length: 818
+<
+{
+  "type": "about:blank",
+  "title": "Error de validación de campos",
+  "status": 400,
+  "detail": "Validation failed for argument at index 0 in method: public reactor.core.publisher.Mono<org.springframework.http.ResponseEntity<dev.magadiflo.app.dto.DepartmentResponse>> dev.magadiflo.app.controller.DepartmentController.saveDepartment(dev.magadiflo.app.dto.DepartmentRequest), with 1 error(s): [Field error in object 'departmentRequest' on field 'name': rejected value [ ]; codes [NotBlank.departmentRequest.name,NotBlank.name,NotBlank.java.lang.String,NotBlank]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [departmentRequest.name,name]; arguments []; default message [name]]; default message [must not be blank]] ",
+  "instance": "/api/v1/departments",
+  "errors": {
+    "name": [
+      "must not be blank"
+    ]
+  }
+}
+````
+
+### 7. Actualiza datos del departamento
+
+````bash
+$ curl -v -X PUT -H "Content-Type: application/json" -d "{\"name\": \"Gerencia update\"}" http://localhost:8080/api/v1/departments/6 | jq
+>
+< HTTP/1.1 200 OK
+< Content-Type: application/json
+< Content-Length: 48
+<
+{
+  "id": 6,
+  "name": "Gerencia update",
+  "employees": []
+}
+````
+
+### 8. Intenta actualizar departamento que no existe
+
+````bash
+$ curl -v -X PUT -H "Content-Type: application/json" -d "{\"name\": \"Gerencia update\"}" http://localhost:8080/api/v1/departments/999 | jq
+>
+< HTTP/1.1 404 Not Found
+< Content-Type: application/problem+json
+< Content-Length: 167
+<
+{
+  "type": "about:blank",
+  "title": "Departamento no encontrado",
+  "status": 404,
+  "detail": "El departamento con id [999] no fue encontrado",
+  "instance": "/api/v1/departments/999"
+}
+````
+
+### 9. Elimina departamento
+
+````bash
+$ curl -v -X DELETE http://localhost:8080/api/v1/departments/6 | jq
+>
+* Request completely sent off
 < HTTP/1.1 204 No Content
 <
 ````
