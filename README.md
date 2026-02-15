@@ -1282,3 +1282,222 @@ public class DepartmentMapper {
 - Usa `Optional.map(...)` para manejar el caso en que el manager sea `null`.
 - Convierte la lista de empleados con `stream().map(...)`.
 - `toDepartment(...)` → convierte un DTO de entrada (`DepartmentRequest`) en una entidad `Department`.
+
+## ⚙️ Servicios
+
+Los `servicios` representan la capa de negocio de la aplicación. Aquí se definen las operaciones que pueden realizarse
+sobre las entidades (`Employee`, `Department`) y se encapsula la lógica de negocio, separándola del acceso a datos
+(`repositorios/DAO`) y de la capa de presentación (`controladores`).
+
+### 📑 Interfaces
+
+#### 👤 EmployeeService
+
+````java
+public interface EmployeeService {
+    Flux<EmployeeResponse> getAllEmployees(String position, Boolean isFullTime);
+
+    Mono<EmployeeResponse> showEmployee(Long employeeId);
+
+    Mono<EmployeeResponse> createEmployee(EmployeeRequest request);
+
+    Mono<EmployeeResponse> updateEmployee(Long employeeId, EmployeeRequest employeeRequest);
+
+    Mono<Void> deleteEmployee(Long employeeId);
+}
+````
+
+#### 🏢 DepartmentService
+
+````java
+public interface DepartmentService {
+    Flux<DepartmentResponse> getAllDepartments();
+
+    Mono<DepartmentResponse> showDepartment(Long departmentId);
+
+    Mono<DepartmentResponse> showDepartmentWithManagerAndEmployees(Long departmentId);
+
+    Mono<DepartmentResponse> createDepartment(DepartmentRequest request);
+
+    Mono<DepartmentResponse> updateDepartment(Long departmentId, DepartmentRequest departmentRequest);
+
+    Mono<Void> deleteDepartment(Long departmentId);
+
+    Flux<EmployeeResponse> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime);
+}
+````
+
+### 🛠️ Implementaciones
+
+#### 👤 EmployeeServiceImpl
+
+````java
+
+@Slf4j
+@RequiredArgsConstructor
+@Service
+@Transactional(readOnly = true)
+public class EmployeeServiceImpl implements EmployeeService {
+
+    private final EmployeeRepository employeeRepository;
+    private final EmployeeMapper employeeMapper;
+
+    @Override
+    public Flux<EmployeeResponse> getAllEmployees(String position, Boolean isFullTime) {
+        if (Objects.isNull(position) && Objects.isNull(isFullTime)) {
+            return this.employeeRepository.findAll()
+                    .map(this.employeeMapper::toEmployeeResponse);
+        }
+
+        if (Objects.nonNull(position) && Objects.nonNull(isFullTime)) {
+            return this.employeeRepository.findByPositionAndFullTime(position, isFullTime)
+                    .map(this.employeeMapper::toEmployeeResponse);
+        }
+
+        if (Objects.nonNull(position)) {
+            return this.employeeRepository.findByPosition(position)
+                    .map(this.employeeMapper::toEmployeeResponse);
+        }
+
+        return this.employeeRepository.findByFullTime(isFullTime)
+                .map(this.employeeMapper::toEmployeeResponse);
+    }
+
+    @Override
+    public Mono<EmployeeResponse> showEmployee(Long employeeId) {
+        return this.employeeRepository.findById(employeeId)
+                .switchIfEmpty(Mono.error(() -> new EmployeeNotFoundException(employeeId)))
+                .map(this.employeeMapper::toEmployeeResponse);
+    }
+
+    @Override
+    @Transactional
+    public Mono<EmployeeResponse> createEmployee(EmployeeRequest request) {
+        return this.employeeRepository.save(Employee.builder()
+                        .firstName(request.firstName())
+                        .lastName(request.lastName())
+                        .position(request.position())
+                        .fullTime(request.fullTime())
+                        .build()
+                )
+                .map(this.employeeMapper::toEmployeeResponse);
+    }
+
+    @Override
+    @Transactional
+    public Mono<EmployeeResponse> updateEmployee(Long employeeId, EmployeeRequest employeeRequest) {
+        return this.employeeRepository.findById(employeeId)
+                .switchIfEmpty(Mono.error(() -> new EmployeeNotFoundException(employeeId)))
+                .map(employeeDB -> {
+                    log.info("Empleado encontrado: {}", employeeDB);
+                    employeeDB.setFirstName(employeeRequest.firstName());
+                    employeeDB.setLastName(employeeRequest.lastName());
+                    employeeDB.setPosition(employeeRequest.position());
+                    employeeDB.setFullTime(employeeRequest.fullTime());
+                    return employeeDB;
+                })
+                .flatMap(this.employeeRepository::save)
+                .doOnNext(employeeDB -> log.info("Empleado actualizado: {}", employeeDB))
+                .map(this.employeeMapper::toEmployeeResponse);
+    }
+
+    @Override
+    @Transactional
+    public Mono<Void> deleteEmployee(Long employeeId) {
+        return this.employeeRepository.findById(employeeId)
+                .switchIfEmpty(Mono.error(() -> new EmployeeNotFoundException(employeeId)))
+                .flatMap(this.employeeRepository::delete);
+    }
+}
+````
+
+#### 🏢 DepartmentServiceImpl
+
+````java
+
+@Slf4j
+@RequiredArgsConstructor
+@Service
+@Transactional(readOnly = true)
+public class DepartmentServiceImpl implements DepartmentService {
+
+    private final DepartmentDao departmentDao;
+    private final DepartmentMapper departmentMapper;
+    private final EmployeeMapper employeeMapper;
+
+    @Override
+    public Flux<DepartmentResponse> getAllDepartments() {
+        return this.departmentDao.findAll()
+                .map(this.departmentMapper::toBasicDepartmentResponse);
+    }
+
+    @Override
+    public Mono<DepartmentResponse> showDepartment(Long departmentId) {
+        return this.departmentDao.findById(departmentId)
+                .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
+                .map(this.departmentMapper::toBasicDepartmentResponse);
+    }
+
+    @Override
+    public Mono<DepartmentResponse> showDepartmentWithManagerAndEmployees(Long departmentId) {
+        return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
+                .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
+                .map(this.departmentMapper::toDepartmentResponse);
+    }
+
+    @Override
+    @Transactional
+    public Mono<DepartmentResponse> createDepartment(DepartmentRequest request) {
+        return this.departmentDao.findByName(request.name())
+                .flatMap(department -> Mono.<Department>error(new DepartmentAlreadyExistsException(department.getName())))
+                .switchIfEmpty(Mono.fromSupplier(() -> this.departmentMapper.toDepartment(request)))
+                .flatMap(this.departmentDao::save)
+                .map(this.departmentMapper::toBasicDepartmentResponse);
+    }
+
+    @Override
+    @Transactional
+    public Mono<DepartmentResponse> updateDepartment(Long departmentId, DepartmentRequest departmentRequest) {
+        return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
+                .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
+                .map(departmentDB -> {
+                    departmentDB.setName(departmentRequest.name());
+                    if (Objects.nonNull(departmentRequest.manager())) {
+                        departmentDB.setManager(this.employeeMapper.toEmployee(departmentRequest.manager()));
+                    }
+                    departmentDB.setEmployees(departmentRequest.employees().stream()
+                            .map(this.employeeMapper::toEmployee)
+                            .toList());
+                    return departmentDB;
+                })
+                .flatMap(this.departmentDao::save)
+                .map(this.departmentMapper::toDepartmentResponse);
+    }
+
+    @Override
+    @Transactional
+    public Mono<Void> deleteDepartment(Long departmentId) {
+        return this.departmentDao.findById(departmentId)
+                .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
+                .flatMap(this.departmentDao::delete);
+    }
+
+    @Override
+    public Flux<EmployeeResponse> getEmployeesFromDepartment(Long departmentId, Boolean isFullTime) {
+        if (isFullTime != null) {
+            return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
+                    .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
+                    .flatMapMany(department -> Flux.fromStream(
+                                    department.getEmployees().stream()
+                                            .filter(employee -> employee.getFullTime().equals(isFullTime))
+                            )
+                    )
+                    .map(this.employeeMapper::toEmployeeResponse);
+        }
+        return this.departmentDao.findDepartmentWithManagerAndEmployees(departmentId)
+                .switchIfEmpty(Mono.error(() -> new DepartmentNotFoundException(departmentId)))
+                .flatMapMany(department -> Flux.fromIterable(department.getEmployees()))
+                .map(this.employeeMapper::toEmployeeResponse);
+    }
+}
+````
