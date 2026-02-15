@@ -1623,3 +1623,166 @@ public class DepartmentController {
 
 }
 ````
+
+## 🔎 Probando endpoints de Employees
+
+### 1. Listar empleados en streaming
+
+````bash
+$ curl -v http://localhost:8080/api/v1/employees/stream
+>
+< HTTP/1.1 200 OK
+< transfer-encoding: chunked
+< Content-Type: text/event-stream;charset=UTF-8
+<
+data:{"id":1,"firstName":"Carlos","lastName":"Gómez","position":"Gerente","fullTime":true}
+
+data:{"id":2,"firstName":"Ana","lastName":"Martínez","position":"Desarrollador","fullTime":true}
+
+...
+
+data:{"id":19,"firstName":"Andrés","lastName":"Castillo","position":"Analista","fullTime":true}
+
+data:{"id":20,"firstName":"Isabel","lastName":"Ramos","position":"Desarrollador","fullTime":true}
+
+* Connection #0 to host localhost:8080 left intact
+````
+
+#### 📌 Explicación del resultado:
+
+- El servidor responde con `Content-Type: text/event-stream`, lo que significa que está enviando datos como
+  `Server-Sent Events (SSE)`.
+- Cada `data`: corresponde a un objeto `EmployeeResponse` serializado en JSON.
+- Los empleados se envían uno a uno en tiempo real, ideal para escenarios donde la lista puede ser muy grande o se
+  actualiza dinámicamente.
+
+### 2. Consultar un empleado por ID
+
+````bash
+$ curl -v http://localhost:8080/api/v1/employees/20 | jq
+>
+< HTTP/1.1 200 OK
+< Content-Type: application/json
+< Content-Length: 92
+<
+{
+  "id": 20,
+  "firstName": "Isabel",
+  "lastName": "Ramos",
+  "position": "Desarrollador",
+  "fullTime": true
+}
+````
+
+### 3. Consultar un empleado que no existe
+
+````bash
+$ curl -v http://localhost:8080/api/v1/employees/999 | jq
+>
+< HTTP/1.1 404 Not Found
+< Content-Type: application/problem+json
+< Content-Length: 157
+<
+{
+  "type": "about:blank",
+  "title": "Empleado no encontrado",
+  "status": 404,
+  "detail": "El empleado con id [999] no fue encontrado",
+  "instance": "/api/v1/employees/999"
+}
+````
+
+### 4. Registra un empleado
+
+````bash
+$ curl -v -X POST -H "Content-type: application/json" -d "{\"firstName\": \"Martin\", \"lastName\": \"Diaz\", \"position\": \"Developer\", \"fullTime\": true}" http://localhost:8080/api/v1/employees | jq
+>
+< HTTP/1.1 201 Created
+< Content-Type: application/json
+< Content-Length: 87
+<
+{
+  "id": 21,
+  "firstName": "Martin",
+  "lastName": "Diaz",
+  "position": "Developer",
+  "fullTime": true
+}
+````
+
+### 5. Valida datos al registrar empleado
+
+````bash
+$ curl -v -X POST -H "Content-type: application/json" -d "{\"firstName\": \"\", \"lastName\": \" \"}" http://localhost:8080/api/v1/employees | jq
+>
+< HTTP/1.1 400 Bad Request
+< Content-Type: application/problem+json
+< Content-Length: 2153
+<
+{
+  "type": "about:blank",
+  "title": "Error de validación de campos",
+  "status": 400,
+  "detail": "Validation failed for argument at index 0 in method: public reactor.core.publisher.Mono<org.springframework.http.ResponseEntity<dev.magadiflo.app.dto.EmployeeResponse>> dev.magadiflo.app.controller.EmployeeController.saveEmployee(reactor.core.publisher.Mono<dev.magadiflo.app.dto.EmployeeRequest>), with 4 error(s): [Field error in object 'employeeRequestMono' on field 'lastName': rejected value [ ]; codes [NotBlank.employeeRequestMono.lastName,NotBlank.lastName,NotBlank.java.lang.String,NotBlank]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [employeeRequestMono.lastName,lastName]; arguments []; default message [lastName]]; default message [must not be blank]] [Field error in object 'employeeRequestMono' on field 'position': rejected value [null]; codes [NotBlank.employeeRequestMono.position,NotBlank.position,NotBlank.java.lang.String,NotBlank]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [employeeRequestMono.position,position]; arguments []; default message [position]]; default message [must not be blank]] [Field error in object 'employeeRequestMono' on field 'firstName': rejected value []; codes [NotBlank.employeeRequestMono.firstName,NotBlank.firstName,NotBlank.java.lang.String,NotBlank]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [employeeRequestMono.firstName,firstName]; arguments []; default message [firstName]]; default message [must not be blank]] [Field error in object 'employeeRequestMono' on field 'fullTime': rejected value [null]; codes [NotNull.employeeRequestMono.fullTime,NotNull.fullTime,NotNull.java.lang.Boolean,NotNull]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [employeeRequestMono.fullTime,fullTime]; arguments []; default message [fullTime]]; default message [must not be null]] ",
+  "instance": "/api/v1/employees",
+  "errors": {
+    "firstName": [
+      "must not be blank"
+    ],
+    "lastName": [
+      "must not be blank"
+    ],
+    "fullTime": [
+      "must not be null"
+    ],
+    "position": [
+      "must not be blank"
+    ]
+  }
+}
+````
+
+### 6. Actualiza datos de empleado
+
+````bash
+$ curl -v -X PUT -H "Content-type: application/json" -d "{\"firstName\": \"Update\", \"lastName\": \"Update\", \"position\": \"Update\", \"fullTime\": false}" http://localhost:8080/api/v1/employees/21 | jq
+>
+< HTTP/1.1 200 OK
+< Content-Type: application/json
+< Content-Length: 87
+<
+{
+  "id": 21,
+  "firstName": "Update",
+  "lastName": "Update",
+  "position": "Update",
+  "fullTime": false
+}
+````
+
+### 7. Intenta actualizar empleado que no existe
+
+````bash
+$ curl -v -X PUT -H "Content-type: application/json" -d "{\"firstName\": \"Update\", \"lastName\": \"Update\", \"position\": \"Update\", \"fullTime\": false}" http://localhost:8080/api/v1/employees/999 | jq
+>
+< HTTP/1.1 404 Not Found
+< Content-Type: application/problem+json
+< Content-Length: 157
+<
+{
+  "type": "about:blank",
+  "title": "Empleado no encontrado",
+  "status": 404,
+  "detail": "El empleado con id [999] no fue encontrado",
+  "instance": "/api/v1/employees/999"
+}
+````
+
+### 8. Elimina empleado
+
+````bash
+$ curl -v -X DELETE http://localhost:8080/api/v1/employees/21 | jq
+>
+< HTTP/1.1 204 No Content
+<
+````
