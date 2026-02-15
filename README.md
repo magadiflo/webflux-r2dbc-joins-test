@@ -1065,3 +1065,52 @@ public record EmployeeResponse(Long id,
 - DTO para enviar datos de un empleado en la respuesta.
 - No requiere validaciones, ya que solo representa datos salientes.
 
+## ⚠️ Creando Excepciones Personalizadas
+
+En una aplicación real, es importante manejar los errores de forma clara y específica.
+En lugar de lanzar excepciones genéricas, definimos `excepciones personalizadas` que representan casos de
+negocio concretos. Esto facilita:
+
+- 📌 Identificar rápidamente el origen del error.
+- 📌 Proporcionar mensajes más claros al cliente (API).
+- 📌 Manejar los errores en un `@ControllerAdvice` o `GlobalExceptionHandler` para devolver respuestas HTTP adecuadas.
+
+### 👤 EmployeeNotFoundException
+
+````java
+public class EmployeeNotFoundException extends RuntimeException {
+    public EmployeeNotFoundException(Long employeeId) {
+        super("El empleado con id [%d] no fue encontrado".formatted(employeeId));
+    }
+}
+````
+
+- Se lanza cuando un empleado no existe en la base de datos.
+- El mensaje incluye el id para mayor claridad.
+
+### 🏢 DepartmentNotFoundException
+
+````java
+public class DepartmentNotFoundException extends RuntimeException {
+    public DepartmentNotFoundException(Long departmentId) {
+        super("El departamento con id [%d] no fue encontrado".formatted(departmentId));
+    }
+}
+````
+
+- Se lanza cuando un departamento no existe.
+- Útil en endpoints como `GET /departments/{id}` o `DELETE /departments/{id}`.
+
+### 🔄 DepartmentAlreadyExistsException
+
+````java
+public class DepartmentAlreadyExistsException extends RuntimeException {
+    public DepartmentAlreadyExistsException(String name) {
+        super("El nombre del departamento [%s] ya existe".formatted(name));
+    }
+}
+````
+
+- Se lanza cuando se intenta crear un departamento con un nombre ya existente.
+- Refuerza la regla de negocio de unicidad del nombre.
+
